@@ -1,6 +1,6 @@
 playlist_prefix: "🎧 "
-max_playlists_per_track: 3
-taxonomy_version: 1
+max_playlists_per_track: 2
+taxonomy_version: 2
 classifier_model: "google/gemini-2.5-flash"
 
 # Each entry becomes a Spotify playlist named "<playlist_prefix><name>".
@@ -234,60 +234,56 @@ playlists:
 
   - name: "Joy"
     description: >
-      Uncomplicated, unambiguous happiness. Music that makes you want to
-      smile without any effort — feel-good pop, upbeat soul, sunny indie,
-      disco, classic pop hits, bubbly R&B. No ironic distance, no undertow
-      of sadness. Should feel like a clear summer day. Major key preferred.
-      Tempo mid-to-high. The test: does this make you feel lighter?
+      Active, unmistakeable joy — the kind of song you have to actively resist
+      not grinning or moving to. Not just "upbeat" or "feel-good" — those are
+      too broad. Reserve this for tracks where the dominant emotional message
+      is exuberant happiness — disco bangers, classic Motown, jubilant gospel,
+      genuinely euphoric pop. If a song is merely pleasant, mid-tempo, or
+      vaguely positive, it does NOT belong here. Strong Last.fm tags like
+      "feel good", "happy", "uplifting" are required signals; major key alone
+      is not enough. The test: would you put this on at a celebration?
     fits:
-      - "pop"
-      - "soul"
-      - "funk"
-      - "disco"
-      - "feel-good"
+      - "feel good"
       - "happy"
-      - "upbeat"
-      - "sunshine pop"
-      - "indie pop"
-      - "bubblegum pop"
-      - "R&B"
+      - "uplifting"
+      - "euphoric"
+      - "joyful"
+      - "disco"
+      - "motown"
     audio_hints:
-      tempo: "100-140 bpm"
-      mood: "happy"
-      energy: "medium-high"
+      tempo: "110-140 bpm"
+      mood: "strongly happy"
+      energy: "high"
     avoid:
-      - "sad"
-      - "melancholy"
-      - "aggressive"
-      - "dark"
-      - "minor key heavy"
+      - "merely upbeat without explicit joy tags"
+      - "ironic or sarcastic lyrics"
+      - "any sad undertone"
+      - "any minor-key sections"
+      - "polite background pop"
 
   - name: "Nostalgia"
     description: >
-      Songs that pull on memory and produce a sweet ache — bittersweet,
-      warm, slightly wistful. Often tied to specific decades or cultural
-      moments. Could be childhood music, formative albums, sounds that smell
-      like a particular time. The feeling is more important than the genre —
-      synth-pop that sounds like the 80s, Britpop that sounds like the 90s,
-      indie that sounds like a specific summer. Tags like "nostalgic", "retro",
-      "classic", "throwback" are strong signals. Emotional tone: longing mixed
-      with warmth, not pure sadness.
+      Songs that produce a specific bittersweet ache for a past time — not
+      just "old songs". STRICT requirement: only assign this if Last.fm or
+      MusicBrainz tags explicitly include "nostalgia", "nostalgic", "retro",
+      "throwback", "memories", or similar memory-tied descriptors. Release
+      year alone is NEVER sufficient — most 80s/90s tracks are simply old,
+      not nostalgic. The track must have explicit cultural memory weight,
+      not merely have been recorded a long time ago. If you would not
+      describe the *feeling* of the song as wistful longing, do not include it.
     fits:
       - "nostalgia"
+      - "nostalgic"
       - "retro"
-      - "classic rock"
-      - "80s"
-      - "90s"
       - "throwback"
-      - "oldies"
-      - "britpop"
-      - "synth-pop"
-      - "new wave"
-      - "classic pop"
+      - "memories"
+      - "wistful"
     avoid:
+      - "any track matched purely on release decade"
+      - "generic 80s/90s pop without explicit nostalgia tags"
+      - "current music regardless of style"
       - "aggressive"
       - "avant-garde"
-      - "harsh noise"
 
   - name: "Driving"
     description: >

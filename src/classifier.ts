@@ -38,10 +38,17 @@ function buildSystemPrompt(maxPlaylistsPerTrack: number): string {
   return `You categorise songs into a fixed list of playlists.
 
 Output strict JSON: {"playlists": ["name1", "name2", ...]}.
+
+Selection rules — read carefully:
 - Use ONLY playlist names from the user-provided list. Hallucinated names will be rejected.
-- Pick at most ${maxPlaylistsPerTrack} playlists.
-- Be conservative — if the song does not strongly fit a playlist, omit it. An empty list is valid and often correct.
-- Prefer fewer, stronger matches over many weak ones.`;
+- DEFAULT to picking exactly 1 playlist. This is the right answer most of the time.
+- Pick 0 (empty list) if no playlist is a strong fit. An empty list is correct and common.
+- Pick 2 ONLY if the track genuinely belongs to two distinct vibes with strong evidence in BOTH. Maximum: ${maxPlaylistsPerTrack}.
+- Reject weak matches. "This song is somewhat happy" is NOT enough to pick "Joy". The playlist's description and avoid-list must clearly fit, not just generally apply.
+- Honour each playlist's "avoid" list as a hard rule. If any avoid clause matches, do not pick that playlist regardless of other signals.
+- Honour each playlist's stated requirements (e.g. "only if tags explicitly include X"). If the requirement is not met, do not pick.
+
+You are not trying to fill playlists. You are trying to make sure each playlist remains meaningful by only including tracks that obviously belong.`;
 }
 
 function formatLastfmTags(tags: EnrichedTrack['lastfmTags']): string {
