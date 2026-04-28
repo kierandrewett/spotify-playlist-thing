@@ -99,15 +99,20 @@ interface SpotifyClientState {
 
 const REQUEST_TIMEOUT_MS = 30_000;
 
-/** Wrap fetch with an AbortController so requests can't hang indefinitely. */
-async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
+/**
+ * Wrap fetch with an AbortController so requests can't hang indefinitely.
+ *
+ * IMPORTANT: we do NOT clear the timer when fetch resolves. The AbortController's
+ * signal is wired into both the request AND the response body stream — clearing
+ * the timer in `finally` (after `await fetch` returns headers) would leave the
+ * body read with no timeout, which is exactly how an undici body-stream stall
+ * silently hangs forever. Letting the timer live for ~30s covers the body too;
+ * once it fires it's GC'd, and aborting an already-consumed response is a no-op.
+ */
+function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } finally {
-    clearTimeout(timer);
-  }
+  setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  return fetch(url, { ...init, signal: controller.signal });
 }
 
 async function refreshTokens(state: SpotifyClientState): Promise<void> {
