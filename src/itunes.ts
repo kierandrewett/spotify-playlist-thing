@@ -38,6 +38,12 @@ async function fetchOnce(url: string): Promise<Response> {
 }
 
 const TRANSIENT_STATUSES = new Set([429, 502, 503, 504]);
+/**
+ * Statuses that mean "iTunes won't give us this preview, but it's not an
+ * error worth aborting over." Treated the same as a successful zero-result
+ * response — the caller proceeds without an audio preview for this track.
+ */
+const SOFT_NULL_STATUSES = new Set([403, 404]);
 const MAX_ATTEMPTS = 4;
 
 /**
@@ -61,6 +67,10 @@ export async function getItunesPreviewUrl(
         const data = (await response.json()) as ItunesSearchResponse;
         if (data.resultCount === 0 || data.results.length === 0) return null;
         return data.results[0].previewUrl ?? null;
+      }
+
+      if (SOFT_NULL_STATUSES.has(response.status)) {
+        return null;
       }
 
       if (TRANSIENT_STATUSES.has(response.status) && attempt < MAX_ATTEMPTS) {

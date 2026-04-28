@@ -32,6 +32,28 @@ function getEssentia(): unknown {
   return _essentia;
 }
 
+// ── WASM serialisation lock ────────────────────────────────────────────────────
+
+/**
+ * Essentia.js WASM is single-threaded and not reentrant. Concurrent calls
+ * corrupt the module heap and trigger `RuntimeError: abort(undefined)`. This
+ * mutex serialises every essentia operation across the whole process while
+ * leaving non-WASM steps (download, ffmpeg) free to run in parallel.
+ */
+let _essentiaLock: Promise<void> = Promise.resolve();
+
+async function withEssentiaLock<T>(fn: () => T): Promise<T> {
+  const previous = _essentiaLock;
+  let release!: () => void;
+  _essentiaLock = new Promise<void>((resolve) => { release = resolve; });
+  await previous;
+  try {
+    return fn();
+  } finally {
+    release();
+  }
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function clamp01(value: number): number {
@@ -126,32 +148,33 @@ export async function extractAudioFeatures(
       return null;
     }
 
-    // 4. Run Essentia.js
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ess = getEssentia() as any;
+    // 4. Run Essentia.js — every call to the WASM module must go through the
+    // lock. Once we're inside the critical section we hold it for the four
+    // related extractor calls so the underlying signal vector stays alive.
+    const { bpm, key, scale, energy, danceability } = await withEssentiaLock(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ess = getEssentia() as any;
+      const signal = ess.arrayToVector(pcm) as unknown;
 
-    const signal = ess.arrayToVector(pcm) as unknown;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      const rhythmResult = ess.RhythmExtractor2013(signal) as { bpm: number };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      const keyResult = ess.KeyExtractor(signal) as { key: string; scale: string };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      const rmsResult = ess.RMS(signal) as { rms: number };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      const danceResult = ess.Danceability(signal) as { danceability: number };
 
-    // BPM
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    const rhythmResult = ess.RhythmExtractor2013(signal) as { bpm: number };
-    const bpm = Math.round(rhythmResult.bpm);
-
-    // Key + scale
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    const keyResult = ess.KeyExtractor(signal) as { key: string; scale: string };
-    const key = keyResult.key;
-    const scale = (keyResult.scale === 'major' ? 'major' : 'minor') as 'major' | 'minor';
-
-    // Energy via RMS — typical music ~0.05–0.4, normalise against 0.3
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    const rmsResult = ess.RMS(signal) as { rms: number };
-    const energy = clamp01(rmsResult.rms / 0.3);
-
-    // Danceability — Essentia returns 0–~30; divide by 3 and clamp
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
-    const danceResult = ess.Danceability(signal) as { danceability: number };
-    const danceability = clamp01(danceResult.danceability / 3);
+      return {
+        bpm: Math.round(rhythmResult.bpm),
+        key: keyResult.key,
+        scale: (keyResult.scale === 'major' ? 'major' : 'minor') as 'major' | 'minor',
+        // RMS — typical music ~0.05–0.4, normalise against 0.3
+        energy: clamp01(rmsResult.rms / 0.3),
+        // Danceability — Essentia returns 0–~30; divide by 3 and clamp
+        danceability: clamp01(danceResult.danceability / 3),
+      };
+    });
 
     // mood values are heuristic proxies (Essentia TF mood models not in standard build)
     const happy = clamp01(
