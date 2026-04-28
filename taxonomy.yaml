@@ -1,6 +1,6 @@
 playlist_prefix: "🎧 "
 max_playlists_per_track: 2
-taxonomy_version: 6
+taxonomy_version: 7
 classifier_model: "google/gemini-2.5-flash-lite"
 
 # Each entry becomes a Spotify playlist named "<playlist_prefix><name>".
@@ -766,3 +766,289 @@ playlists:
       - "instrumental"
       - "vocals as texture"
       - "lyrics-as-afterthought pop"
+
+  # ── Confirmed adds (5) ──────────────────────────────────────────────────────
+
+  - name: "Sensual"
+    description: >
+      Slow, seductive R&B and bedroom electronic — sultry atmospheres
+      built around intimacy and physicality. Frank Ocean's slow burns,
+      The Weeknd's quieter side, FKA Twigs at her most carnal, Solange's
+      slower work, slow Sade. Different from Tender (open-hearted, not
+      seductive) and Late Night (general after-hours mood) — Sensual
+      is specifically about embodied desire. Use-case: intimacy,
+      candlelight, deliberate slow movement.
+    fits:
+      - "sensual"
+      - "seductive"
+      - "bedroom R&B"
+      - "sultry"
+      - "alt R&B"
+      - "intimate"
+      - "slow burn"
+    audio_hints:
+      tempo: "55-95 bpm"
+      energy: "low"
+      mood: "sultry"
+      vocal: "breathy, intimate"
+    avoid:
+      - "celebratory"
+      - "ironic"
+      - "high energy"
+      - "purely sad"
+
+  - name: "Sleep"
+    description: >
+      Music for actually falling asleep — long, soft, low-information
+      pieces designed to be on while consciousness fades. Sleep ambient,
+      hypnogogic drone, very slow piano, white-noise-adjacent textures.
+      Different from Stillness (waking meditation, more present) and
+      Decompression (active recovery from overload) — Sleep is for the
+      hour before bed onwards. Max Richter's "Sleep" album, Brian Eno
+      "Music for Airports", Hammock at their slowest.
+    fits:
+      - "sleep"
+      - "hypnogogic"
+      - "ambient sleep"
+      - "very slow piano"
+      - "soporific"
+      - "drone"
+    audio_hints:
+      tempo: "<60 bpm or beatless"
+      energy: "very low"
+      mood: "soporific"
+    avoid:
+      - "any sudden change"
+      - "vocals with words"
+      - "rhythmic percussion"
+
+  - name: "Sing-Along"
+    description: >
+      Karaoke anthems — songs you know every word to, where the JOY is
+      in singing along rather than the music itself. Bohemian Rhapsody,
+      Don't Stop Believin', ABBA, Mr. Brightside, Wonderwall. Different
+      from Hype (energy-driven), Joy (happiness-driven), and Storytelling
+      (you LISTEN, here you SING). The defining quality: would you
+      shout-sing this in a car with friends?
+    fits:
+      - "karaoke"
+      - "anthem"
+      - "sing-along"
+      - "shout-sing"
+      - "classic pop"
+      - "lyrical hook"
+    audio_hints:
+      tempo: "any"
+      energy: "medium-high"
+      vocal: "memorable, hook-driven"
+    avoid:
+      - "instrumental"
+      - "obscure / unknown"
+      - "complex unmemorable lyrics"
+
+  - name: "Nighttime Drive"
+    description: >
+      Music for nocturnal driving — neon-lit motorway, retrowave, slow
+      propulsive synth, late-night downtempo with motion. Synthwave,
+      late-night electronic, Drive-soundtrack-shaped tracks (Kavinsky,
+      Lost Memories, Carpenter Brut at their slower edge). Different
+      from Driving (general / daytime) and Late Night (stationary). The
+      use-case is specifically: motorway, dark, alone, headlights.
+    fits:
+      - "synthwave"
+      - "retrowave"
+      - "nocturnal"
+      - "late-night electronic"
+      - "neon"
+      - "outrun"
+      - "darksynth"
+    audio_hints:
+      tempo: "90-130 bpm"
+      energy: "medium"
+      mood: "moody motion"
+    avoid:
+      - "sunny / bright"
+      - "acoustic / folk"
+      - "vocal-led pop"
+
+  - name: "Liminal"
+    description: >
+      Eerie, uncanny, in-between — music that feels like waiting in an
+      empty corridor at 3am. Burial, James Blake's quietest work, Boards
+      of Canada at their weirdest, hauntology, off-kilter ambient with
+      a sense of unease. Different from Dreamy (pleasant floating) and
+      Curiosity Spark (intellectually weird) and Stillness (peaceful)
+      — Liminal is specifically *unsettled*. The defining quality: it
+      feels like something is about to happen, or just did.
+    fits:
+      - "hauntology"
+      - "uncanny"
+      - "liminal"
+      - "eerie ambient"
+      - "post-club"
+      - "ghostly"
+      - "off-kilter electronic"
+    audio_hints:
+      tempo: "any"
+      energy: "low"
+      mood: "unsettled, in-between"
+    avoid:
+      - "warm / comforting"
+      - "joyful"
+      - "anthemic"
+
+  # ── Out-there adds (6) ──────────────────────────────────────────────────────
+
+  - name: "Crime Scene"
+    description: >
+      Tense, paranoid, cinematic-noir music — feels like you're in a
+      heist or being followed. Trip-hop with menace, ominous synths,
+      unsettled drum patterns, jazz with shadow. Massive Attack
+      "Teardrop"-era, Portishead, late-period Radiohead at their
+      most paranoid, DJ Shadow's darker work. Different from Liminal
+      (eerie waiting) — Crime Scene has *intent*: someone is doing
+      something, and it might be bad.
+    fits:
+      - "trip-hop"
+      - "noir"
+      - "paranoid"
+      - "menacing"
+      - "cinematic"
+      - "downtempo dark"
+    audio_hints:
+      tempo: "70-100 bpm"
+      energy: "low-medium, taut"
+      mood: "tense"
+    avoid:
+      - "celebratory"
+      - "warm"
+      - "predictable structure"
+
+  - name: "Healing"
+    description: >
+      Restorative balm music — gentle uplift specifically for moments
+      of recovery, grief processing, or self-soothing. Big Thief's
+      tender side, Florist, gentle Sufjan, Phoebe Bridgers at her
+      most fragile, Sigur Rós's softest. Different from Cosy (warm
+      and casual), Decompression (sensory recovery), and Tender (open
+      vulnerability) — Healing is actively medicinal. Use-case: when
+      you need music to make something feel survivable.
+    fits:
+      - "healing"
+      - "restorative"
+      - "soft uplift"
+      - "gentle indie folk"
+      - "tender"
+      - "balm"
+    audio_hints:
+      tempo: "60-90 bpm"
+      energy: "low"
+      mood: "softly uplifting"
+    avoid:
+      - "ironic"
+      - "aggressive"
+      - "high energy"
+
+  - name: "Petty"
+    description: >
+      Songs for being theatrically dramatic — passive-aggressive bops,
+      petty breakup songs, satisfying confrontations set to music. The
+      vibe is "I'm being dramatic and enjoying it." Olivia Rodrigo
+      "good 4 u", Beyoncé "Sorry", early Charli XCX album cuts,
+      Doja Cat at her sassiest, fun_ "We Are Young" energy. Different
+      from Heartbreak (real loss) and Anger Out (channelled fury) —
+      Petty is dramatics for performance, not for pain.
+    fits:
+      - "petty"
+      - "sassy"
+      - "diss"
+      - "passive aggressive"
+      - "dramatic"
+      - "breakup pop"
+    audio_hints:
+      tempo: "100-140 bpm"
+      energy: "medium-high"
+      mood: "theatrical, sharp"
+    avoid:
+      - "earnest / sincere"
+      - "purely sad"
+      - "instrumental"
+
+  - name: "Kitchen"
+    description: >
+      Joyful household-activity music — songs for cooking, cleaning,
+      dancing in your underwear at 11am on a Saturday. Slightly more
+      frantic and goofy than Groove, less anthemic than Hype. Funky,
+      kinetic, irresistibly bouncy. Talking Heads, Jamiroquai's
+      sillier moments, LCD Soundsystem at their most fun, Justice
+      "D.A.N.C.E.". Use-case: domestic motion, no audience, full
+      embarrassment-free expression.
+    fits:
+      - "kinetic"
+      - "bouncy"
+      - "funky"
+      - "playful"
+      - "dance-rock"
+      - "indie disco"
+      - "fun pop"
+    audio_hints:
+      tempo: "110-130 bpm"
+      energy: "high"
+      danceability: "very high"
+      mood: "playfully joyful"
+    avoid:
+      - "moody"
+      - "club-functional (→ Club Tools)"
+      - "smooth / sultry"
+
+  - name: "Cosmic"
+    description: >
+      Space-y synth journeys — kosmische, prog, ambient psychedelia
+      with an outward-bound feel. Tangerine Dream, Klaus Schulze,
+      Boards of Canada's Music Has the Right to Children, side-two
+      Floyd, modern stuff like Floating Points / Pharoah Sanders.
+      Different from Cinematic (drama-shaped) and Liminal (uncanny) —
+      Cosmic is specifically *expansive*, looking outward at infinite
+      space. Long pieces, slow evolution.
+    fits:
+      - "kosmische"
+      - "ambient psychedelic"
+      - "prog"
+      - "space"
+      - "krautrock"
+      - "long-form"
+      - "synth journey"
+    audio_hints:
+      tempo: "any"
+      energy: "low-medium, slow evolution"
+      mood: "expansive"
+    avoid:
+      - "song-shaped (verse/chorus)"
+      - "high energy"
+      - "vocal-led"
+
+  - name: "Vampire"
+    description: >
+      Gothic, dark-romantic, brooding — Type O Negative, Chelsea Wolfe,
+      Lana Del Rey at her gothiest, dark cabaret, slow doom-y indie,
+      goth-adjacent dream pop (Cocteau Twins darker work). The vibe is
+      candlelit, velvet-draped, somewhere between sexy and funereal.
+      Different from Heartbreak (raw loss), Melancholy (settled
+      sadness), and Sensual (intimate not gothic) — Vampire is
+      specifically *theatrical darkness*.
+    fits:
+      - "gothic"
+      - "dark romantic"
+      - "doom-pop"
+      - "dark cabaret"
+      - "goth"
+      - "darkwave"
+      - "brooding"
+    audio_hints:
+      tempo: "60-100 bpm"
+      energy: "low-medium"
+      mood: "theatrical dark"
+    avoid:
+      - "bright / sunny"
+      - "ironic"
+      - "celebratory"
