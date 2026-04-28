@@ -1,6 +1,6 @@
 playlist_prefix: "🎧 "
 max_playlists_per_track: 2
-taxonomy_version: 4
+taxonomy_version: 5
 classifier_model: "google/gemini-2.5-flash-lite"
 
 # Each entry becomes a Spotify playlist named "<playlist_prefix><name>".
@@ -513,3 +513,261 @@ playlists:
       - "high energy"
       - "bright/sunny vibes"
       - "morning music"
+
+  - name: "Morning"
+    description: >
+      Bright but gentle wake-up music — soft folk, mellow indie pop,
+      coffee-shop warmth, acoustic mornings. The opposite end of the
+      day from Late Night. Not anthemic (Joy) or anxious to start the
+      day (Hype) — just kind, sunlit easing-in. José González, Devendra
+      Banhart, gentle Norah Jones, mellow Iron & Wine. Use-case: first
+      hour awake, slow breakfast, sunrise window light.
+    fits:
+      - "morning"
+      - "acoustic"
+      - "soft folk"
+      - "mellow indie"
+      - "sunrise"
+      - "coffee shop"
+      - "gentle"
+    audio_hints:
+      tempo: "70-110 bpm"
+      energy: "low-medium"
+      mood: "calm and bright"
+    avoid:
+      - "high energy"
+      - "dark or moody"
+      - "aggressive"
+
+  - name: "Heartbreak"
+    description: >
+      Sharp post-loss rawness — devastated breakup tracks, angsty
+      reckoning, songs that capture the specific pain of losing someone
+      or something. More raw than Melancholy (general sadness), more
+      specific than Tender (open vulnerability). Olivia Rodrigo's angsty
+      tracks, Adele heavy, Phoebe Bridgers at her most direct, Bon Iver
+      at his rawest. Use-case: actively processing a breakup or loss.
+    fits:
+      - "heartbreak"
+      - "breakup"
+      - "sad"
+      - "devastating"
+      - "raw"
+      - "emo"
+      - "confessional"
+    audio_hints:
+      tempo: "any"
+      energy: "any"
+      mood: "raw, sad"
+    avoid:
+      - "celebratory"
+      - "lighthearted"
+      - "purely angry without sadness"
+
+  - name: "Cinematic"
+    description: >
+      Music that makes you feel like the protagonist of a movie —
+      dramatic builds, orchestral swells, post-rock peaks, soundtrack
+      moments. Hans Zimmer scores, Sigur Rós, Explosions in the Sky,
+      Max Richter, Ólafur Arnalds, the climactic moments of post-rock
+      tracks. Different from Hype (which is anthemic, not necessarily
+      epic) and Curiosity Spark (which is weird, not necessarily
+      dramatic). Use-case: walking with headphones and feeling profound,
+      narrative emotional arcs.
+    fits:
+      - "cinematic"
+      - "orchestral"
+      - "post-rock"
+      - "soundtrack"
+      - "epic"
+      - "neo-classical"
+      - "ambient orchestral"
+      - "modern classical"
+    audio_hints:
+      tempo: "any"
+      energy: "builds from low to high"
+      mood: "epic"
+    avoid:
+      - "consistently low-stakes"
+      - "purely lyrical"
+      - "unstructured ambient"
+
+  - name: "Yearning"
+    description: >
+      Specific feeling of longing — wanting someone, somewhere, something
+      you can't quite reach. Different from Melancholy (settled sadness)
+      and Tender (open warmth) — Yearning has reach in it, the ache of
+      desire. Mitski at her most longing, Phoebe Bridgers reaching, slow
+      synth-pop with distance, Lana Del Rey wistful. Use-case: when you
+      want to lean into the wanting itself.
+    fits:
+      - "yearning"
+      - "longing"
+      - "wistful"
+      - "indie folk"
+      - "slow synth-pop"
+      - "atmospheric"
+      - "introspective"
+    audio_hints:
+      tempo: "60-100 bpm"
+      energy: "low-medium"
+      mood: "longing"
+    avoid:
+      - "celebratory"
+      - "settled / contentment"
+      - "aggressive"
+
+  - name: "Devotional"
+    description: >
+      Spiritual, transcendent, gospel — music with sacred or sublime
+      reach. Black gospel, hymns, devotional electronic, sacred minimalism,
+      Sufjan's religious work, Aretha gospel, Arvo Pärt, Hildegard. Doesn't
+      have to be religious — just music with that quality of reaching for
+      something larger. Use-case: when you want music that aims upward,
+      moments of awe or grace.
+    fits:
+      - "gospel"
+      - "spiritual"
+      - "sacred"
+      - "devotional"
+      - "hymn"
+      - "sacred minimalism"
+      - "transcendent"
+      - "choral"
+    audio_hints:
+      tempo: "any"
+      energy: "any"
+      mood: "reverent"
+    avoid:
+      - "ironic"
+      - "purely secular party music"
+      - "aggressive"
+
+  - name: "Stillness"
+    description: >
+      Pure ambient, drone, near-silent music for actual meditation or
+      deep quiet. No melody, minimal structure, very slow change. Distinct
+      from Deep Focus (which has more structure) and Decompression (which
+      uses gentle music) — Stillness is for tracks that approach silence
+      itself. Brian Eno's quietest work, Stars of the Lid, Eliane Radigue,
+      William Basinski, deep drone. Use-case: meditation, breath work,
+      sensory deprivation moments.
+    fits:
+      - "ambient"
+      - "drone"
+      - "minimalist"
+      - "meditation"
+      - "silent"
+      - "field recording"
+      - "isolationist"
+    audio_hints:
+      tempo: "<60 bpm or beatless"
+      energy: "very low"
+      mood: "still"
+    avoid:
+      - "any beat"
+      - "melodic hooks"
+      - "vocals"
+
+  - name: "Workout"
+    description: >
+      BPM-locked propulsive music for cardio — running, lifting, gym
+      sessions. Different from Hype (anthemic peaks) and Driving
+      (mid-tempo motion) — Workout is specifically about sustained
+      tempo for sustained effort. Hard EDM, drum & bass, fast hip-hop,
+      gym-friendly rock, hard techno. Use-case: actual exercise, where
+      you need consistent BPM more than emotional content.
+    fits:
+      - "workout"
+      - "gym"
+      - "running"
+      - "EDM"
+      - "drum and bass"
+      - "hard techno"
+      - "cardio"
+      - "fitness"
+    audio_hints:
+      tempo: "130-180 bpm"
+      energy: "high, sustained"
+      danceability: "high"
+    avoid:
+      - "tempo changes mid-track"
+      - "long quiet sections"
+      - "ambient"
+
+  - name: "Sunset"
+    description: >
+      Golden-hour specific — that warm, slightly nostalgic late-afternoon
+      light captured in sound. Pairs with Morning and Late Night to cover
+      the day. Sufjan Stevens warm tracks, Bon Iver's Bon Iver-era warmth,
+      Khruangbin sunset jams, Air, Beach House at dusk. Different from
+      Cosy (any time) and Dreamy (more disorienting) — Sunset is
+      specifically that golden, slightly elegiac quality.
+    fits:
+      - "sunset"
+      - "golden hour"
+      - "warm"
+      - "elegiac"
+      - "summer evening"
+      - "dusk"
+      - "atmospheric folk"
+    audio_hints:
+      tempo: "70-110 bpm"
+      energy: "low-medium"
+      mood: "warm, slightly wistful"
+    avoid:
+      - "morning brightness"
+      - "midnight darkness"
+      - "high energy"
+
+  - name: "Catharsis"
+    description: >
+      Songs to actively cry to or scream to — emotional release through
+      intensity. Different from Anger Out (channelled anger) and
+      Heartbreak (specific loss) and Melancholy (settled sadness) —
+      Catharsis is about the *release*. Big builds that burst,
+      screamed choruses, devastating crescendos, songs designed to
+      crack you open. Phoebe Bridgers's screaming end of "I Know The
+      End", post-rock crescendos, emo peaks, devastating ballads.
+    fits:
+      - "cathartic"
+      - "emotional release"
+      - "crescendo"
+      - "screamed vocals"
+      - "post-rock peak"
+      - "emo"
+      - "devastating"
+    audio_hints:
+      tempo: "any"
+      energy: "builds to peaks"
+      mood: "intense release"
+    avoid:
+      - "consistently low-stakes"
+      - "polite / restrained"
+      - "background music"
+
+  - name: "Storytelling"
+    description: >
+      Lyric-forward folk and singer-songwriter tracks where you LISTEN
+      to the words. Bob Dylan, Joni Mitchell, Leonard Cohen, modern
+      narrative songwriters. Different from every other playlist
+      because the criterion is structural (lyrics carry the weight)
+      rather than emotional. The track demands attention to language.
+      Use-case: deliberate listening, language-focused mood, train
+      journeys with the lyric sheet.
+    fits:
+      - "singer-songwriter"
+      - "narrative"
+      - "lyrical"
+      - "folk"
+      - "storytelling"
+      - "wordy"
+      - "literary"
+    audio_hints:
+      tempo: "any"
+      energy: "low-medium"
+      vocal: "prominent and meaningful"
+    avoid:
+      - "instrumental"
+      - "vocals as texture"
+      - "lyrics-as-afterthought pop"
