@@ -373,10 +373,11 @@ export async function removeTracksFromPlaylist(
     await spotifyFetch(state, url, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      // Feb 2026 endpoint: the new /items DELETE expects { uris: [...] },
-      // matching the POST shape. The legacy { tracks: [{uri}] } body now
-      // returns 400 "No uris provided".
-      body: JSON.stringify({ uris: batch }),
+      // Feb 2026 migration: the body parameter `tracks` was RENAMED to
+      // `items`. The shape inside (objects with a `uri` key) is unchanged.
+      // Spotify's "No uris provided" error message for missing `items` is
+      // misleading; the actual field name comes from the migration guide.
+      body: JSON.stringify({ items: batch.map((uri) => ({ uri })) }),
     });
   }
 }
