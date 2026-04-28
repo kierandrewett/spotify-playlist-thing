@@ -1,7 +1,7 @@
 playlist_prefix: "🎧 "
 max_playlists_per_track: 2
-taxonomy_version: 3
-classifier_model: "google/gemini-2.5-flash"
+taxonomy_version: 4
+classifier_model: "google/gemini-2.5-flash-lite"
 
 # Each entry becomes a Spotify playlist named "<playlist_prefix><name>".
 # The LLM reads these definitions verbatim when classifying each track, so
@@ -374,3 +374,142 @@ playlists:
       - "generic pop"
       - "straightforward"
       - "radio-friendly"
+
+  - name: "Swagger"
+    description: >
+      Hip-hop, R&B, and adjacent music with confident attitude — slick, smooth,
+      slightly cocky. The vibe is "I look good and I know it" rather than
+      anthemic celebration (Joy) or pure cardio energy (Hype). Trap, drill,
+      modern R&B with bravado, smooth rap with attitude. Mid-tempo to upbeat.
+      Use-case: getting ready to go out, walking somewhere with purpose,
+      hype-without-anthem mood. If a track makes you want to nod with cool
+      detachment rather than grin or jump, it probably belongs here.
+    fits:
+      - "hip-hop"
+      - "rap"
+      - "trap"
+      - "drill"
+      - "R&B"
+      - "neo-soul"
+      - "swag"
+      - "confident"
+      - "cool"
+    audio_hints:
+      tempo: "70-130 bpm"
+      energy: "medium-high"
+      mood: "confident"
+    avoid:
+      - "anthemic celebration"
+      - "predominantly sad"
+      - "pure aggression without style"
+
+  - name: "Dreamy"
+    description: >
+      Hazy, floating, slightly disorienting in a pleasant way. Psychedelic
+      rock, shoegaze, dream pop, ethereal indie, ambient pop with vocals.
+      Reverb-soaked, washed-out, blurred edges. Use-case: spaced-out moments,
+      looking out a window on a journey, gentle dissociation, daydreaming.
+      Different from Decompression (which is for recovering from overload —
+      Dreamy is for actively floating). Tame Impala, Beach House, Cocteau
+      Twins, slowdive-adjacent.
+    fits:
+      - "psychedelic"
+      - "shoegaze"
+      - "dream pop"
+      - "ethereal"
+      - "hazy"
+      - "ambient pop"
+      - "neo-psychedelia"
+      - "chillwave"
+    audio_hints:
+      tempo: "any"
+      energy: "low-medium"
+      mood: "floating"
+    avoid:
+      - "harsh edges"
+      - "aggressive vocals"
+      - "high-stim percussion"
+
+  - name: "Tender"
+    description: >
+      Emotionally open, vulnerable, intimate music. Soft acoustic, gentle
+      ballads, quiet R&B, whispered vocals. The feeling is "open-hearted" —
+      not sad like Melancholy, not warm-and-comforting like Cosy, but
+      emotionally exposed. Phoebe Bridgers in restraint mode, slow Frank
+      Ocean, Sufjan's quieter work, gentle love songs. Use-case: emotionally
+      available moments, processing soft feelings, sitting with someone you
+      love. If the song feels like it could make you cry but isn't *trying*
+      to, it belongs here.
+    fits:
+      - "intimate"
+      - "vulnerable"
+      - "tender"
+      - "soft acoustic"
+      - "gentle ballad"
+      - "slow R&B"
+      - "love song"
+      - "quiet"
+    audio_hints:
+      tempo: "60-100 bpm"
+      energy: "low"
+      mood: "tender"
+      vocal: "soft, intimate"
+    avoid:
+      - "heavy production"
+      - "loud dynamics"
+      - "ironic distance"
+
+  - name: "Groove"
+    description: >
+      Mid-tempo danceable music that's smooth rather than anthemic — funk,
+      disco, neo-soul, house, modern soulful electronic. The kind of song
+      that makes you bob your head and shift your weight while doing
+      something else. Not high-stakes celebration (Joy) or workout energy
+      (Hype) — just an irresistible pocket. Jamiroquai, Disclosure,
+      Jungle, Khruangbin, smooth house. Use-case: cooking, getting dressed,
+      light activity where you want movement without commitment.
+    fits:
+      - "funk"
+      - "disco"
+      - "house"
+      - "neo-soul"
+      - "groovy"
+      - "danceable"
+      - "soulful"
+      - "downtempo"
+    audio_hints:
+      tempo: "100-130 bpm"
+      energy: "medium"
+      danceability: "high"
+    avoid:
+      - "anthemic peaks"
+      - "aggressive drops"
+      - "non-rhythmic ambient"
+
+  - name: "Late Night"
+    description: >
+      After-hours music — slow R&B, downtempo electronic, jazzy lounge,
+      dim-light vibes. Smoke and amber lighting, not bright sunlight.
+      Different from Decompression (which is recovery) and Dreamy
+      (which is floating) — Late Night is specifically about the
+      time-of-day quality, the sense of intimacy and slowness that
+      comes after midnight. The Weeknd's slower work, FKA Twigs,
+      Sade, Massive Attack, Bonobo. Use-case: late evening, low lights,
+      winding down without going to sleep.
+    fits:
+      - "downtempo"
+      - "trip-hop"
+      - "lounge"
+      - "smooth jazz"
+      - "after hours"
+      - "slow R&B"
+      - "nocturnal"
+      - "moody electronic"
+    audio_hints:
+      tempo: "60-100 bpm"
+      energy: "low"
+      mood: "moody"
+    avoid:
+      - "high energy"
+      - "bright/sunny vibes"
+      - "morning music"
