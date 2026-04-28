@@ -1,0 +1,58 @@
+playlist_prefix: "🎧 "
+max_playlists_per_track: 3
+taxonomy_version: 1
+classifier_model: "google/gemini-2.5-flash"
+
+playlists:
+  - name: "Deep Focus"
+    description: "Instrumental, low-vocal, low-stim. For coding or reading."
+    fits:
+      - "ambient"
+      - "lo-fi"
+      - "instrumental post-rock"
+      - "minimal techno"
+      - "study music"
+      - "background music"
+    audio_hints:
+      tempo: "<100 bpm"
+      energy: "low"
+      vocal: "low or none"
+    avoid:
+      - "sudden dynamic shifts"
+      - "heavy vocals"
+      - "aggressive percussion"
+
+  - name: "Hype"
+    description: "High-energy, anthemic. For workouts, motivation, or getting pumped up."
+    fits:
+      - "upbeat hip-hop"
+      - "rock anthems"
+      - "EDM drops"
+      - "power metal"
+      - "hardstyle"
+      - "gym music"
+    audio_hints:
+      tempo: ">120 bpm"
+      energy: "high"
+      danceability: "high"
+    avoid:
+      - "slow tempo"
+      - "melancholy"
+      - "ambient"
+
+  - name: "Melancholy"
+    description: "Sad, reflective, slow. For winding down, processing feelings, or rainy days."
+    fits:
+      - "sad indie"
+      - "slow piano"
+      - "rainy day"
+      - "emo"
+      - "slowcore"
+      - "singer-songwriter"
+    audio_hints:
+      tempo: "<90 bpm"
+      mood: "sad"
+    avoid:
+      - "upbeat"
+      - "high energy"
+      - "dancefloor"
