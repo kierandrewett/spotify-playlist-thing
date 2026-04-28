@@ -294,7 +294,13 @@ async function buildPillAndText(
   const maxPillWidth = FINAL_SIZE - 48;
   const targetTextWidth = maxPillWidth - innerLeftPad - innerRightPad;
 
-  const luminance = relativeLuminance(bgRgb.r, bgRgb.g, bgRgb.b);
+  // Lighten the dominant colour ~25% toward white so the pill stays readable
+  // and stands out from the album art behind it instead of camouflaging.
+  const lift = 0.25;
+  const lightR = Math.round(bgRgb.r + (255 - bgRgb.r) * lift);
+  const lightG = Math.round(bgRgb.g + (255 - bgRgb.g) * lift);
+  const lightB = Math.round(bgRgb.b + (255 - bgRgb.b) * lift);
+  const luminance = relativeLuminance(lightR, lightG, lightB);
   const textColour = luminance > 0.4 ? '#0a0a0a' : '#ffffff';
 
   // Measure at the largest size first. If the text exceeds the budget, scale
@@ -320,18 +326,27 @@ async function buildPillAndText(
   const textX = innerLeftPad;
   const textY = pillY + innerTopBottomPad;
 
-  const bgFill = `rgb(${bgRgb.r}, ${bgRgb.g}, ${bgRgb.b})`;
+  const bgFill = `rgb(${lightR}, ${lightG}, ${lightB})`;
   // Trick: render the pill with x = -cornerRadius and width += cornerRadius
   // so the left rounded corners go off-canvas and we get a flush-left tab
   // shape with rounded corners only on the right.
+  // The bottom-half black gradient sits BEHIND the pill, fading from
+  // transparent at the midline to ~50% black at the bottom — gives the pill
+  // a darker base to lift off and helps text legibility on bright albums.
   const pillSvg = Buffer.from(
     `
 <svg width="${FINAL_SIZE}" height="${FINAL_SIZE}" xmlns="http://www.w3.org/2000/svg">
   <defs>
+    <linearGradient id="bgFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="black" stop-opacity="0"/>
+      <stop offset="100%" stop-color="black" stop-opacity="0.55"/>
+    </linearGradient>
     <filter id="lift" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.35"/>
     </filter>
   </defs>
+  <rect x="0" y="${FINAL_SIZE * 0.5}" width="${FINAL_SIZE}" height="${FINAL_SIZE * 0.5}"
+        fill="url(#bgFade)"/>
   <rect x="${-cornerRadius}" y="${pillY}" width="${pillWidth + cornerRadius}" height="${pillHeight}"
         rx="${cornerRadius}" ry="${cornerRadius}"
         fill="${bgFill}" filter="url(#lift)"/>
@@ -374,7 +389,7 @@ async function composeArt(name: string, imageBuffers: Buffer[]): Promise<Buffer>
   // out the album art. Black areas in the overlay become invisible.
   const cdOverlay = await getCdOverlay();
   baseBuf = await sharp(baseBuf)
-    .composite([{ input: cdOverlay, blend: 'screen' }])
+    .composite([{ input: cdOverlay, blend: 'color-dodge' }])
     .png()
     .toBuffer();
 
