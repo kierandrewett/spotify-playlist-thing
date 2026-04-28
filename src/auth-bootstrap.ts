@@ -10,7 +10,7 @@ import * as crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 
 const REDIRECT_URI = 'http://127.0.0.1:8888/callback';
-const SCOPES = 'user-library-read playlist-read-private playlist-modify-private playlist-modify-public';
+const SCOPES = 'user-library-read playlist-read-private playlist-modify-private playlist-modify-public ugc-image-upload';
 
 function openBrowser(url: string): void {
   const platform = process.platform;
