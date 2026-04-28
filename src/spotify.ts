@@ -379,6 +379,25 @@ export async function removeTracksFromPlaylist(
 }
 
 /**
+ * Update a playlist's name and/or description. Only the fields you provide
+ * are sent. Spotify caps description at ~300 characters; caller is
+ * responsible for trimming.
+ */
+export async function updatePlaylistDetails(
+  client: SpotifyClient,
+  playlistId: string,
+  fields: { name?: string; description?: string },
+): Promise<void> {
+  const state = client._internal;
+  const url = `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}`;
+  await spotifyFetch(state, url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  });
+}
+
+/**
  * Fetch a single track and return the largest album image URL, or null if
  * the track has no album images.
  */
