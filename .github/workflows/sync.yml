@@ -1,0 +1,76 @@
+name: sync
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # hourly — GitHub disables cron after 60 days of inactivity,
+                          # but the state.sqlite commits below count as activity.
+  workflow_dispatch:      # manual "Run workflow" button in the Actions tab
+    inputs:
+      dry_run:
+        description: 'Dry run (no Spotify writes)'
+        required: false
+        default: 'false'
+        type: boolean
+
+# Never abort a sync mid-flight — if two runs overlap, the second waits.
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+# Write access is required so the final step can commit state.sqlite back.
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # ffmpeg is used by src/audio.ts to decode MP3 preview clips → mono PCM
+      # before handing off to Essentia.js for audio feature extraction.
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Sync
+        env:
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          SPOTIFY_REFRESH_TOKEN: ${{ secrets.SPOTIFY_REFRESH_TOKEN }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          MUSICBRAINZ_CONTACT_EMAIL: ${{ secrets.MUSICBRAINZ_CONTACT_EMAIL }}
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            pnpm tsx src/sync.ts --dry-run
+          else
+            pnpm tsx src/sync.ts
+          fi
+
+      # Only commit state.sqlite when this is a real (non-dry-run) sync.
+      # Skips the commit entirely if nothing changed (idempotent runs stay clean).
+      - name: Commit state
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          git config user.name 'spotify-playlist-thing-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          if [ -n "$(git status --porcelain state.sqlite)" ]; then
+            git add state.sqlite
+            git commit -m "state: sync $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          else
+            echo "no state changes"
+          fi
