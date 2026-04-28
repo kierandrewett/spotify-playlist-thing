@@ -320,11 +320,27 @@ async function buildPillAndText(
     rendered = await renderText(name, fontSize, textColour);
   }
 
+  // Size the pill from a reference glyph set ("Hg") that always includes both
+  // a cap and a descender, so every pill is the same height regardless of the
+  // word's letters. Then offset the actual text bitmap so its baseline lines
+  // up with the reference baseline — descenders ("g", "y") naturally hang
+  // below; ascender-only words sit at the same baseline as descender words.
+  const reference = await renderText('Hg', fontSize, textColour);
+  const refHeight = reference.height;
+  const DESCENDER_RATIO = 0.22; // IM Fell descender ≈ 22% of cap+desc bitmap
+
+  const hasDescender = /[gjpqy]/i.test(name);
+  const textBaselineFromTop = hasDescender
+    ? Math.round(rendered.height * (1 - DESCENDER_RATIO))
+    : rendered.height;
+  const refBaselineFromTop = Math.round(refHeight * (1 - DESCENDER_RATIO));
+
   const pillWidth = innerLeftPad + rendered.width + innerRightPad;
-  const pillHeight = rendered.height + innerTopBottomPad * 2;
+  const pillHeight = refHeight + innerTopBottomPad * 2;
   const pillY = FINAL_SIZE - bottomMargin - pillHeight;
   const textX = innerLeftPad;
-  const textY = pillY + innerTopBottomPad;
+  // Place the text bitmap so its baseline matches the reference baseline.
+  const textY = pillY + innerTopBottomPad + refBaselineFromTop - textBaselineFromTop;
 
   const bgFill = `rgb(${lightR}, ${lightG}, ${lightB})`;
   // Trick: render the pill with x = -cornerRadius and width += cornerRadius
