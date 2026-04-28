@@ -377,3 +377,50 @@ export async function removeTracksFromPlaylist(
     });
   }
 }
+
+/**
+ * Fetch a single track and return the largest album image URL, or null if
+ * the track has no album images.
+ */
+export async function getAlbumArtUrl(
+  client: SpotifyClient,
+  trackId: string,
+): Promise<string | null> {
+  const state = client._internal;
+  const url = `https://api.spotify.com/v1/tracks/${encodeURIComponent(trackId)}`;
+  const body = await spotifyFetch(state, url);
+  const images = (body as { album?: { images?: Array<{ url: string; width: number; height: number }> } }).album?.images;
+  if (!images || images.length === 0) return null;
+  // Spotify returns images sorted largest-first.
+  return images[0].url;
+}
+
+/**
+ * Upload a JPEG (provided as a base64 string, NO data URI prefix) as the
+ * cover image for a playlist. Spotify enforces a 256KB max on the encoded
+ * payload — caller is responsible for compressing.
+ */
+export async function uploadPlaylistImage(
+  client: SpotifyClient,
+  playlistId: string,
+  jpegBase64: string,
+): Promise<void> {
+  const state = client._internal;
+  await ensureFreshToken(state);
+  const url = `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/images`;
+  // Note: this endpoint takes the base64 string in the raw body with
+  // Content-Type: image/jpeg, NOT a JSON wrapper. spotifyFetch's JSON
+  // assumption doesn't fit, so call fetch directly.
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${state.accessToken}`,
+      'Content-Type': 'image/jpeg',
+    },
+    body: jpegBase64,
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(`uploadPlaylistImage failed: HTTP ${response.status} for playlist ${playlistId}: ${text.slice(0, 200)}`);
+  }
+}

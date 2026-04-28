@@ -8,3 +8,4 @@ state.sqlite-wal
 state.sqlite-shm
 dist/
 .DS_Store
+art/
