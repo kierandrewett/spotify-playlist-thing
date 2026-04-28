@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "dry-run": "tsx src/sync.ts --dry-run",
     "art": "tsx scripts/generate-art.ts",
-    "audit": "tsx scripts/audit-taxonomy.ts"
+    "taxonomy": "tsx scripts/audit-taxonomy.ts"
   },
   "dependencies": {
     "better-sqlite3": "^9.6.0",
