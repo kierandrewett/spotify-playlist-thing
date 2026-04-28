@@ -240,53 +240,89 @@ async function pickVividColour(buf: Buffer): Promise<{ r: number; g: number; b: 
   };
 }
 
+/** Render text via sharp's Pango-backed text mode. Returns the bitmap and
+ * the actual rendered pixel dimensions (so we can size the pill exactly). */
+async function renderText(
+  text: string,
+  fontSize: number,
+  colour: string,
+): Promise<{ buf: Buffer; width: number; height: number }> {
+  const pangoEscaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  const r = await sharp({
+    text: {
+      text: `<span foreground="${colour}">${pangoEscaped}</span>`,
+      // Pango font description: family, weight, size. "Heavy" maps to weight
+      // 900; Pango falls back to the nearest available weight for the family.
+      font: `sans Heavy ${fontSize}`,
+      rgba: true,
+    },
+  }).png().toBuffer({ resolveWithObject: true });
+  return { buf: r.data, width: r.info.width, height: r.info.height };
+}
+
+interface PillAndText {
+  pillSvg: Buffer;
+  textBuf: Buffer;
+  textX: number;
+  textY: number;
+}
+
 /**
- * Build the bottom-left "tab" overlay: a pill that's flush with the left
- * canvas edge (rounded corners only on the right), sized tightly to the text,
- * coloured to match the album-art dominant colour with auto-contrast text.
+ * Build the bottom-left "tab" overlay: a pill flush with the left edge
+ * (rounded corners only on the right), sized to the *measured* text bitmap
+ * so right padding is exactly innerRightPad regardless of which glyphs the
+ * playlist name uses. Background is the dominant album colour; text colour
+ * is auto-picked for WCAG contrast.
  */
-function overlaySvg(
+async function buildPillAndText(
   name: string,
   bgRgb: { r: number; g: number; b: number },
-): Buffer {
-  const safe = escapeXml(name);
-  const innerLeftPad = 96;          // distance from canvas left edge to the text glyphs
-  const innerRightPad = 96;         // padding to the right of the text inside the pill
+): Promise<PillAndText> {
+  const innerLeftPad = 96;
+  const innerRightPad = 96;
   const innerTopBottomPad = 28;
   const cornerRadius = 28;
-  const charWidth = 0.50;           // tighter empirical — bold Helvetica avg-width
   const minFontSize = 64;
   const maxFontSize = 132;
-  const bottomMargin = 96;          // distance from canvas bottom to pill bottom
-
-  // Start big and shrink the font if the pill would overflow the canvas right edge.
-  // We allow the pill to use most of the width, but keep ≥48px breathing room on the right.
+  const bottomMargin = 96;
   const maxPillWidth = FINAL_SIZE - 48;
+  const targetTextWidth = maxPillWidth - innerLeftPad - innerRightPad;
+
+  const luminance = relativeLuminance(bgRgb.r, bgRgb.g, bgRgb.b);
+  const textColour = luminance > 0.4 ? '#0a0a0a' : '#ffffff';
+
+  // Measure at the largest size first. If the text exceeds the budget, scale
+  // the font proportionally and re-measure (a single proportional step almost
+  // always lands within budget; the trailing while-loop is a safety net).
   let fontSize = maxFontSize;
-  let textWidth = name.length * fontSize * charWidth;
-  while (
-    innerLeftPad + textWidth + innerRightPad > maxPillWidth &&
-    fontSize > minFontSize
-  ) {
+  let rendered = await renderText(name, fontSize, textColour);
+  if (rendered.width > targetTextWidth) {
+    fontSize = Math.max(
+      minFontSize,
+      Math.floor((fontSize * targetTextWidth) / rendered.width),
+    );
+    rendered = await renderText(name, fontSize, textColour);
+  }
+  while (rendered.width > targetTextWidth && fontSize > minFontSize) {
     fontSize -= 4;
-    textWidth = name.length * fontSize * charWidth;
+    rendered = await renderText(name, fontSize, textColour);
   }
 
-  const pillWidth = Math.ceil(innerLeftPad + textWidth + innerRightPad);
-  const pillHeight = fontSize + innerTopBottomPad * 2;
+  const pillWidth = innerLeftPad + rendered.width + innerRightPad;
+  const pillHeight = rendered.height + innerTopBottomPad * 2;
   const pillY = FINAL_SIZE - bottomMargin - pillHeight;
   const textX = innerLeftPad;
-  // Baseline placement — empirical for Helvetica Black at large sizes.
-  const textY = pillY + innerTopBottomPad + fontSize * 0.82;
+  const textY = pillY + innerTopBottomPad;
 
   const bgFill = `rgb(${bgRgb.r}, ${bgRgb.g}, ${bgRgb.b})`;
-  const luminance = relativeLuminance(bgRgb.r, bgRgb.g, bgRgb.b);
-  const textFill = luminance > 0.4 ? '#0a0a0a' : '#ffffff';
-
-  // Trick: render the pill with x = -cornerRadius and width += cornerRadius so
-  // the left rounded corners go off-canvas and we get a flush-left tab shape
-  // with rounded corners only on the right.
-  const svg = `
+  // Trick: render the pill with x = -cornerRadius and width += cornerRadius
+  // so the left rounded corners go off-canvas and we get a flush-left tab
+  // shape with rounded corners only on the right.
+  const pillSvg = Buffer.from(
+    `
 <svg width="${FINAL_SIZE}" height="${FINAL_SIZE}" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <filter id="lift" x="-20%" y="-20%" width="140%" height="140%">
@@ -296,12 +332,10 @@ function overlaySvg(
   <rect x="${-cornerRadius}" y="${pillY}" width="${pillWidth + cornerRadius}" height="${pillHeight}"
         rx="${cornerRadius}" ry="${cornerRadius}"
         fill="${bgFill}" filter="url(#lift)"/>
-  <text x="${textX}" y="${textY}"
-        font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
-        font-weight="900" font-size="${fontSize}" fill="${textFill}"
-        letter-spacing="-1">${safe}</text>
-</svg>`.trim();
-  return Buffer.from(svg);
+</svg>`.trim(),
+  );
+
+  return { pillSvg, textBuf: rendered.buf, textX, textY };
 }
 
 async function composeArt(name: string, imageBuffers: Buffer[]): Promise<Buffer> {
@@ -345,20 +379,24 @@ async function composeArt(name: string, imageBuffers: Buffer[]): Promise<Buffer>
   // muddy averages). The pill matches what the user actually sees.
   const dom = await pickVividColour(baseBuf);
 
-  // 4. Composite the text pill on top of everything.
-  const overlay = overlaySvg(name, dom);
+  // 4. Build the pill rect (SVG) and text bitmap (Pango); composite both.
+  const { pillSvg, textBuf, textX, textY } = await buildPillAndText(name, dom);
+  const overlays = [
+    { input: pillSvg, left: 0, top: 0 },
+    { input: textBuf, left: textX, top: textY },
+  ];
 
   // 5. Encode JPEG, stepping down quality if we overshoot Spotify's 256KB cap
   // on the base64 payload.
   let quality = 85;
   let composited = await sharp(baseBuf)
-    .composite([{ input: overlay, left: 0, top: 0 }])
+    .composite(overlays)
     .jpeg({ quality, mozjpeg: true })
     .toBuffer();
   while (Buffer.byteLength(composited.toString('base64'), 'utf8') > SPOTIFY_IMAGE_BUDGET && quality > 40) {
     quality -= 10;
     composited = await sharp(baseBuf)
-      .composite([{ input: overlay, left: 0, top: 0 }])
+      .composite(overlays)
       .jpeg({ quality, mozjpeg: true })
       .toBuffer();
   }
