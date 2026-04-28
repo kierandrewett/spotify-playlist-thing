@@ -1,6 +1,6 @@
 playlist_prefix: "🎧 "
 max_playlists_per_track: 2
-taxonomy_version: 5
+taxonomy_version: 6
 classifier_model: "google/gemini-2.5-flash-lite"
 
 # Each entry becomes a Spotify playlist named "<playlist_prefix><name>".
@@ -461,29 +461,41 @@ playlists:
 
   - name: "Groove"
     description: >
-      Mid-tempo danceable music that's smooth rather than anthemic — funk,
-      disco, neo-soul, house, modern soulful electronic. The kind of song
+      Mid-tempo, *smooth* danceable music — funk, disco, neo-soul,
+      soulful/deep/jazzy house, modern soulful electronic. The kind of song
       that makes you bob your head and shift your weight while doing
-      something else. Not high-stakes celebration (Joy) or workout energy
-      (Hype) — just an irresistible pocket. Jamiroquai, Disclosure,
-      Jungle, Khruangbin, smooth house. Use-case: cooking, getting dressed,
-      light activity where you want movement without commitment.
+      something else. Reference points: Jamiroquai, Disclosure (the soul
+      cuts), Jungle, Khruangbin, Roy Ayers, soulful Kaytranada, deep house
+      with a vocal hook. Use-case: cooking, getting dressed, light
+      activity where you want movement without commitment.
+
+      STRICT exclusion: this is NOT general dance / club / EDM. Peak-time
+      bootlegs, edits, hardstyle, donk, bassline, jersey club, hyper rap,
+      DJ tools, bass-drop-driven house — all of those go to Club Tools.
+      If a track exists primarily to serve a club floor rather than a
+      living room, it does NOT belong here.
     fits:
       - "funk"
       - "disco"
-      - "house"
+      - "soulful house"
+      - "deep house"
       - "neo-soul"
       - "groovy"
-      - "danceable"
       - "soulful"
       - "downtempo"
+      - "nu-disco"
+      - "jazzy house"
     audio_hints:
-      tempo: "100-130 bpm"
+      tempo: "100-128 bpm"
       energy: "medium"
       danceability: "high"
+      vocal: "smooth, often soulful"
     avoid:
       - "anthemic peaks"
-      - "aggressive drops"
+      - "bass drops"
+      - "peak-time club energy"
+      - "bootleg / edit / DJ-tool tracks"
+      - "hard EDM / hardstyle / donk / bassline"
       - "non-rhythmic ambient"
 
   - name: "Late Night"
@@ -695,56 +707,39 @@ playlists:
       - "long quiet sections"
       - "ambient"
 
-  - name: "Sunset"
+  - name: "Club Tools"
     description: >
-      Golden-hour specific — that warm, slightly nostalgic late-afternoon
-      light captured in sound. Pairs with Morning and Late Night to cover
-      the day. Sufjan Stevens warm tracks, Bon Iver's Bon Iver-era warmth,
-      Khruangbin sunset jams, Air, Beach House at dusk. Different from
-      Cosy (any time) and Dreamy (more disorienting) — Sunset is
-      specifically that golden, slightly elegiac quality.
+      Peak-time floor-functional dance music — bootlegs, edits, remix-pack
+      tracks, niche subgenres built for the DJ booth rather than home
+      listening. Donk, bassline, hardstyle, jersey club, hyper rap, UK
+      garage edits, hard EDM, jungle bootlegs, big-room drops, tech house
+      bombs, hyperpop-rap. Often by obscure / underground producers.
+      The defining quality: this song exists to *function* on a club
+      floor — energy, drop, tempo lock — rather than to be listened to
+      attentively. If a track is anonymous, hard-hitting, and DJ-tool
+      shaped, it belongs here.
     fits:
-      - "sunset"
-      - "golden hour"
-      - "warm"
-      - "elegiac"
-      - "summer evening"
-      - "dusk"
-      - "atmospheric folk"
+      - "bootleg"
+      - "edit"
+      - "DJ tool"
+      - "donk"
+      - "bassline"
+      - "hardstyle"
+      - "jersey club"
+      - "UK garage"
+      - "tech house"
+      - "big room"
+      - "hyperpop rap"
+      - "underground EDM"
+      - "remix"
     audio_hints:
-      tempo: "70-110 bpm"
-      energy: "low-medium"
-      mood: "warm, slightly wistful"
+      tempo: "120-180 bpm"
+      energy: "high"
+      danceability: "very high"
     avoid:
-      - "morning brightness"
-      - "midnight darkness"
-      - "high energy"
-
-  - name: "Catharsis"
-    description: >
-      Songs to actively cry to or scream to — emotional release through
-      intensity. Different from Anger Out (channelled anger) and
-      Heartbreak (specific loss) and Melancholy (settled sadness) —
-      Catharsis is about the *release*. Big builds that burst,
-      screamed choruses, devastating crescendos, songs designed to
-      crack you open. Phoebe Bridgers's screaming end of "I Know The
-      End", post-rock crescendos, emo peaks, devastating ballads.
-    fits:
-      - "cathartic"
-      - "emotional release"
-      - "crescendo"
-      - "screamed vocals"
-      - "post-rock peak"
-      - "emo"
-      - "devastating"
-    audio_hints:
-      tempo: "any"
-      energy: "builds to peaks"
-      mood: "intense release"
-    avoid:
-      - "consistently low-stakes"
-      - "polite / restrained"
-      - "background music"
+      - "soulful / smooth (→ Groove)"
+      - "anthemic / sing-along (→ Hype)"
+      - "calm / ambient"
 
   - name: "Storytelling"
     description: >
