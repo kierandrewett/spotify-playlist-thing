@@ -30,6 +30,7 @@ import { getPlaylistMapping } from '../src/state.js';
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const ART_DIR = './art';
+const CD_OVERLAY_PATH = './assets/cd_overlay.png';
 const FINAL_SIZE = 1024;
 const HALF = FINAL_SIZE / 2;
 const MAX_TRACKS_TO_FETCH = 12; // we look at 12 most-recent classifications to find 4 distinct albums
@@ -110,13 +111,50 @@ interface Cell {
   top: number;
 }
 
-/** Fixed 2×2 layout. Caller guarantees exactly 4 unique album images. */
-const GRID_LAYOUT: Array<{ width: number; height: number; left: number; top: number }> = [
-  { width: HALF, height: HALF, left: 0, top: 0 },
-  { width: HALF, height: HALF, left: HALF, top: 0 },
-  { width: HALF, height: HALF, left: 0, top: HALF },
-  { width: HALF, height: HALF, left: HALF, top: HALF },
-];
+/**
+ * Layout for N unique album images. Returns slot dimensions + position. Used
+ * for the album-art grid behind the pill / CD overlay.
+ *   1 → full bleed
+ *   2 → top half / bottom half
+ *   3 → top full-width band, two squares on the bottom
+ *   4 → 2×2
+ *   5+ → first 4 used as 2×2 (caller must trim)
+ */
+function layoutFor(n: number): Array<{ width: number; height: number; left: number; top: number }> {
+  if (n >= 4) {
+    return [
+      { width: HALF, height: HALF, left: 0, top: 0 },
+      { width: HALF, height: HALF, left: HALF, top: 0 },
+      { width: HALF, height: HALF, left: 0, top: HALF },
+      { width: HALF, height: HALF, left: HALF, top: HALF },
+    ];
+  }
+  if (n === 3) {
+    return [
+      { width: FINAL_SIZE, height: HALF, left: 0, top: 0 },
+      { width: HALF, height: HALF, left: 0, top: HALF },
+      { width: HALF, height: HALF, left: HALF, top: HALF },
+    ];
+  }
+  if (n === 2) {
+    return [
+      { width: FINAL_SIZE, height: HALF, left: 0, top: 0 },
+      { width: FINAL_SIZE, height: HALF, left: 0, top: HALF },
+    ];
+  }
+  return [{ width: FINAL_SIZE, height: FINAL_SIZE, left: 0, top: 0 }];
+}
+
+// Lazy-load the CD overlay PNG once, pre-resized to 1024×1024 so it's a
+// drop-in for sharp.composite.
+let _cdOverlayBuf: Buffer | null = null;
+async function getCdOverlay(): Promise<Buffer> {
+  if (_cdOverlayBuf) return _cdOverlayBuf;
+  _cdOverlayBuf = await sharp(CD_OVERLAY_PATH)
+    .resize(FINAL_SIZE, FINAL_SIZE, { fit: 'cover', position: 'centre' })
+    .toBuffer();
+  return _cdOverlayBuf;
+}
 
 function escapeXml(s: string): string {
   return s.replace(/[<>&'"]/g, (c) =>
@@ -128,98 +166,137 @@ function escapeXml(s: string): string {
   );
 }
 
-function overlaySvg(name: string): Buffer {
-  const safe = escapeXml(name);
-  const cornerPad = 96;             // distance from canvas edge (was 48/56)
-  const labelPadX = 40;             // horizontal padding inside the label
-  const labelPadY = 26;             // vertical padding inside the label
-  const cornerRadius = 20;
-  const charWidth = 0.58;           // empirical — bold Helvetica avg-width ratio
-  const minFontSize = 64;
-  const maxFontSize = 124;          // bigger than before
-  const maxLabelWidth = FINAL_SIZE - cornerPad * 2;
+/** WCAG relative luminance — used to pick black vs white text. */
+function relativeLuminance(r: number, g: number, b: number): number {
+  const channel = (c: number): number => {
+    const v = c / 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
 
-  // Start big and shrink until the label fits within the available width.
+/**
+ * Build the bottom-left "tab" overlay: a pill that's flush with the left
+ * canvas edge (rounded corners only on the right), sized tightly to the text,
+ * coloured to match the album-art dominant colour with auto-contrast text.
+ */
+function overlaySvg(
+  name: string,
+  bgRgb: { r: number; g: number; b: number },
+): Buffer {
+  const safe = escapeXml(name);
+  const innerLeftPad = 96;          // distance from canvas left edge to the text glyphs
+  const innerRightPad = 56;         // tight padding to the right of the text
+  const innerTopBottomPad = 28;
+  const cornerRadius = 28;
+  const charWidth = 0.50;           // tighter empirical — bold Helvetica avg-width
+  const minFontSize = 64;
+  const maxFontSize = 132;
+  const bottomMargin = 96;          // distance from canvas bottom to pill bottom
+
+  // Start big and shrink the font if the pill would overflow the canvas right edge.
+  // We allow the pill to use most of the width, but keep ≥48px breathing room on the right.
+  const maxPillWidth = FINAL_SIZE - 48;
   let fontSize = maxFontSize;
   let textWidth = name.length * fontSize * charWidth;
-  while (textWidth + labelPadX * 2 > maxLabelWidth && fontSize > minFontSize) {
+  while (
+    innerLeftPad + textWidth + innerRightPad > maxPillWidth &&
+    fontSize > minFontSize
+  ) {
     fontSize -= 4;
     textWidth = name.length * fontSize * charWidth;
   }
 
-  const labelWidth = Math.ceil(textWidth + labelPadX * 2);
-  const labelHeight = fontSize + labelPadY * 2;
-  const labelX = cornerPad;
-  const labelY = FINAL_SIZE - cornerPad - labelHeight;
-  const textX = labelX + labelPadX;
-  // Baseline ≈ top of label + topPad + (fontSize * cap-height fudge)
-  const textY = labelY + labelPadY + fontSize * 0.82;
+  const pillWidth = Math.ceil(innerLeftPad + textWidth + innerRightPad);
+  const pillHeight = fontSize + innerTopBottomPad * 2;
+  const pillY = FINAL_SIZE - bottomMargin - pillHeight;
+  const textX = innerLeftPad;
+  // Baseline placement — empirical for Helvetica Black at large sizes.
+  const textY = pillY + innerTopBottomPad + fontSize * 0.82;
 
+  const bgFill = `rgb(${bgRgb.r}, ${bgRgb.g}, ${bgRgb.b})`;
+  const luminance = relativeLuminance(bgRgb.r, bgRgb.g, bgRgb.b);
+  const textFill = luminance > 0.4 ? '#0a0a0a' : '#ffffff';
+
+  // Trick: render the pill with x = -cornerRadius and width += cornerRadius so
+  // the left rounded corners go off-canvas and we get a flush-left tab shape
+  // with rounded corners only on the right.
   const svg = `
 <svg width="${FINAL_SIZE}" height="${FINAL_SIZE}" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="bgFade" x1="0" y1="0.55" x2="0" y2="1">
-      <stop offset="0%" stop-color="black" stop-opacity="0"/>
-      <stop offset="100%" stop-color="black" stop-opacity="0.5"/>
-    </linearGradient>
     <filter id="lift" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.35"/>
     </filter>
   </defs>
-  <rect x="0" y="${FINAL_SIZE * 0.45}" width="${FINAL_SIZE}" height="${FINAL_SIZE * 0.55}" fill="url(#bgFade)"/>
-  <rect x="${labelX}" y="${labelY}" width="${labelWidth}" height="${labelHeight}"
+  <rect x="${-cornerRadius}" y="${pillY}" width="${pillWidth + cornerRadius}" height="${pillHeight}"
         rx="${cornerRadius}" ry="${cornerRadius}"
-        fill="white" fill-opacity="0.96" filter="url(#lift)"/>
+        fill="${bgFill}" filter="url(#lift)"/>
   <text x="${textX}" y="${textY}"
         font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
-        font-weight="900" font-size="${fontSize}" fill="#0a0a0a"
+        font-weight="900" font-size="${fontSize}" fill="${textFill}"
         letter-spacing="-1">${safe}</text>
 </svg>`.trim();
   return Buffer.from(svg);
 }
 
 async function composeArt(name: string, imageBuffers: Buffer[]): Promise<Buffer> {
-  if (imageBuffers.length !== 4) {
-    throw new Error(`composeArt requires exactly 4 images for "${name}", got ${imageBuffers.length}`);
+  if (imageBuffers.length === 0) {
+    throw new Error(`composeArt called with zero images for "${name}"`);
   }
 
-  // Resize each image to its slot using cover crop.
+  // 1. Build the album-art grid with whatever layout fits the count.
+  const layout = layoutFor(imageBuffers.length);
   const cells: Cell[] = [];
-  for (let i = 0; i < GRID_LAYOUT.length; i++) {
-    const slot = GRID_LAYOUT[i];
+  for (let i = 0; i < layout.length; i++) {
+    const slot = layout[i];
     const resized = await sharp(imageBuffers[i])
       .resize(slot.width, slot.height, { fit: 'cover', position: 'centre' })
       .toBuffer();
     cells.push({ buf: resized, ...slot });
   }
 
-  // Composite onto a black canvas.
-  const base = sharp({
+  let baseBuf = await sharp({
     create: {
       width: FINAL_SIZE,
       height: FINAL_SIZE,
       channels: 3,
       background: { r: 0, g: 0, b: 0 },
     },
-  });
-
-  const composited = await base
-    .composite([
-      ...cells.map((c) => ({ input: c.buf, left: c.left, top: c.top })),
-      { input: overlaySvg(name), left: 0, top: 0 },
-    ])
-    .jpeg({ quality: 85, mozjpeg: true })
+  })
+    .composite(cells.map((c) => ({ input: c.buf, left: c.left, top: c.top })))
+    .png()
     .toBuffer();
 
-  // Spotify's cap is 256KB on the base64 string. Base64 inflates by ~33%, so
-  // the binary JPEG must be under ~190KB. Step quality down if we overshoot.
+  // 2. Apply the CD overlay PNG with `overlay` blend (CSS mix-blend-mode parity).
+  const cdOverlay = await getCdOverlay();
+  baseBuf = await sharp(baseBuf)
+    .composite([{ input: cdOverlay, blend: 'overlay' }])
+    .png()
+    .toBuffer();
+
+  // 3. Pull the dominant colour from the post-blend image so the pill matches
+  // what the user actually sees.
+  const stats = await sharp(baseBuf).stats();
+  const dom = stats.dominant; // { r, g, b }
+
+  // 4. Composite the text pill on top of everything.
+  const overlay = overlaySvg(name, dom);
+
+  // 5. Encode JPEG, stepping down quality if we overshoot Spotify's 256KB cap
+  // on the base64 payload.
   let quality = 85;
-  let buf = composited;
-  while (Buffer.byteLength(buf.toString('base64'), 'utf8') > SPOTIFY_IMAGE_BUDGET && quality > 40) {
+  let composited = await sharp(baseBuf)
+    .composite([{ input: overlay, left: 0, top: 0 }])
+    .jpeg({ quality, mozjpeg: true })
+    .toBuffer();
+  while (Buffer.byteLength(composited.toString('base64'), 'utf8') > SPOTIFY_IMAGE_BUDGET && quality > 40) {
     quality -= 10;
-    buf = await sharp(composited).jpeg({ quality, mozjpeg: true }).toBuffer();
+    composited = await sharp(baseBuf)
+      .composite([{ input: overlay, left: 0, top: 0 }])
+      .jpeg({ quality, mozjpeg: true })
+      .toBuffer();
   }
-  return buf;
+  return composited;
 }
 
 // ── Per-playlist runner ───────────────────────────────────────────────────────
@@ -261,6 +338,7 @@ async function processPlaylist(
   } else {
     const trackIds = recentTracksForPlaylist(db, name);
 
+    // Need at least 1 distinct album. Layout picks 1/2/3/4-up automatically.
     const seenAlbums = new Set<string>();
     const uniqueImageUrls: string[] = [];
     for (const id of trackIds) {
@@ -272,11 +350,11 @@ async function processPlaylist(
       if (uniqueImageUrls.length === 4) break;
     }
 
-    if (uniqueImageUrls.length < 4) {
+    if (uniqueImageUrls.length === 0) {
       return {
         name,
         status: 'skipped-not-ready',
-        message: `${uniqueImageUrls.length}/4 distinct albums (need 4)`,
+        message: 'no classified tracks with album art yet',
       };
     }
 
