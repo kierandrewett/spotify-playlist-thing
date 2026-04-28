@@ -4,6 +4,7 @@
  * Prints the refresh token to stdout for use as a GitHub Actions secret.
  */
 
+import 'dotenv/config';
 import * as http from 'node:http';
 import * as crypto from 'node:crypto';
 import { spawn } from 'node:child_process';

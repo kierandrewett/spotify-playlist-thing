@@ -10,6 +10,7 @@
  *                       data + raw classification result. Skip everything else.
  */
 
+import 'dotenv/config';
 import { existsSync } from 'node:fs';
 import type { Database } from 'better-sqlite3';
 
