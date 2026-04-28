@@ -2,8 +2,8 @@ name: sync
 
 on:
   schedule:
-    - cron: '0 * * * *'  # hourly — GitHub disables cron after 60 days of inactivity,
-                          # but the state.sqlite commits below count as activity.
+    - cron: '0 */2 * * *'  # every 2 hours — GitHub disables cron after 60 days of
+                            # inactivity, but the state.sqlite commits below count.
   workflow_dispatch:      # manual "Run workflow" button in the Actions tab
     inputs:
       dry_run:
