@@ -337,12 +337,20 @@ export async function listUserPlaylists(
   client: SpotifyClient,
 ): Promise<Array<{ id: string; name: string }>> {
   const state = client._internal;
+  const MAX_PAGES = 200; // 200 × 50 = 10 000 playlists; far more than any sensible user
   let url: string | null = 'https://api.spotify.com/v1/me/playlists?limit=50';
   const out: Array<{ id: string; name: string }> = [];
+  let pages = 0;
   while (url !== null) {
+    pages++;
+    if (pages > MAX_PAGES) {
+      console.error(`[spotify] listUserPlaylists hit MAX_PAGES (${MAX_PAGES}) — stopping pagination`);
+      break;
+    }
     const res = await spotifyFetch(state, url);
     const page = (await res.json()) as SpotifyPagingObject<SpotifyPlaylistObject>;
     for (const p of page.items) out.push({ id: p.id, name: p.name });
+    console.error(`[spotify] listUserPlaylists page ${pages}: +${page.items.length} (total ${out.length})`);
     url = page.next;
   }
   return out;
