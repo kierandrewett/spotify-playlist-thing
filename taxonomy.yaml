@@ -1,6 +1,6 @@
 playlist_prefix: "🎧 "
 max_playlists_per_track: 2
-taxonomy_version: 2
+taxonomy_version: 3
 classifier_model: "google/gemini-2.5-flash"
 
 # Each entry becomes a Spotify playlist named "<playlist_prefix><name>".
@@ -234,14 +234,14 @@ playlists:
 
   - name: "Joy"
     description: >
-      Active, unmistakeable joy — the kind of song you have to actively resist
-      not grinning or moving to. Not just "upbeat" or "feel-good" — those are
-      too broad. Reserve this for tracks where the dominant emotional message
-      is exuberant happiness — disco bangers, classic Motown, jubilant gospel,
-      genuinely euphoric pop. If a song is merely pleasant, mid-tempo, or
-      vaguely positive, it does NOT belong here. Strong Last.fm tags like
-      "feel good", "happy", "uplifting" are required signals; major key alone
-      is not enough. The test: would you put this on at a celebration?
+      Songs whose dominant emotional message is happiness — exuberant,
+      celebratory, or warm. Disco bangers, classic Motown, jubilant gospel,
+      anthemic feel-good pop, soundtrack moments built around triumph or
+      celebration. Tags like "feel good", "happy", "uplifting", "joyful"
+      are strong signals but not strictly required — use the description,
+      audio features, and overall vibe together. Major key plus high energy
+      plus a celebratory feel is enough. The test: would this fit at a
+      genuinely happy moment (a birthday, a reunion, a win)?
     fits:
       - "feel good"
       - "happy"
@@ -250,27 +250,27 @@ playlists:
       - "joyful"
       - "disco"
       - "motown"
+      - "anthem"
     audio_hints:
-      tempo: "110-140 bpm"
-      mood: "strongly happy"
-      energy: "high"
+      tempo: "100-140 bpm"
+      mood: "happy"
+      energy: "medium-high"
     avoid:
-      - "merely upbeat without explicit joy tags"
       - "ironic or sarcastic lyrics"
-      - "any sad undertone"
-      - "any minor-key sections"
-      - "polite background pop"
+      - "predominantly sad or wistful"
+      - "predominantly aggressive"
+      - "polite background pop with no emotional weight"
 
   - name: "Nostalgia"
     description: >
-      Songs that produce a specific bittersweet ache for a past time — not
-      just "old songs". STRICT requirement: only assign this if Last.fm or
-      MusicBrainz tags explicitly include "nostalgia", "nostalgic", "retro",
-      "throwback", "memories", or similar memory-tied descriptors. Release
-      year alone is NEVER sufficient — most 80s/90s tracks are simply old,
-      not nostalgic. The track must have explicit cultural memory weight,
-      not merely have been recorded a long time ago. If you would not
-      describe the *feeling* of the song as wistful longing, do not include it.
+      Songs that produce a bittersweet ache for a past time — wistful longing
+      mixed with warmth. Strong preference: Last.fm/MusicBrainz tags like
+      "nostalgia", "nostalgic", "retro", "throwback", "memories", or
+      culturally iconic tracks famously associated with a specific era
+      (think movie-soundtrack anthems, defining hits of a decade). Release
+      year alone is NOT sufficient — being recorded in 1985 doesn't make a
+      song nostalgic, but being THE song people associate with 1985 might.
+      If you can't articulate *why* it's nostalgic beyond "it's old", skip it.
     fits:
       - "nostalgia"
       - "nostalgic"
@@ -278,10 +278,10 @@ playlists:
       - "throwback"
       - "memories"
       - "wistful"
+      - "iconic"
     avoid:
-      - "any track matched purely on release decade"
-      - "generic 80s/90s pop without explicit nostalgia tags"
       - "current music regardless of style"
+      - "old tracks with no cultural memory weight"
       - "aggressive"
       - "avant-garde"
 

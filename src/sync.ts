@@ -449,6 +449,8 @@ async function main(): Promise<void> {
   let tracksRemoved = 0;
   let classifierCalls = 0;
   let playlistsAffected = 0;
+  /** Set of taxonomy playlist names that received at least one add or remove this run. */
+  const playlistNamesTouched = new Set<string>();
 
   // ── 9. Process tracks to classify (bounded parallelism, 4 at a time) ──────
   const classifyTasks = tracksToClassify.map((track) => async (): Promise<void> => {
@@ -468,27 +470,38 @@ async function main(): Promise<void> {
         .filter((name) => taxonomyNames.has(name))
         .slice(0, taxonomy.maxPlaylistsPerTrack);
 
-      // If reclassifying, wipe old classifications and queue removals
-      if (isReclassify) {
-        const oldPlaylists = getClassifications(db, track.id);
+      // Capture old assignments BEFORE we overwrite them in the DB
+      const oldPlaylists = isReclassify ? getClassifications(db, track.id) : [];
+      const newSetForTrack = new Set(filteredPlaylists);
+
+      if (DRY_RUN) {
         for (const oldName of oldPlaylists) {
-          queueRemove(oldName, track.uri);
+          if (!newSetForTrack.has(oldName)) queueRemove(oldName, track.uri);
         }
-      }
-
-      // Queue adds for new playlist assignments
-      for (const playlistName of filteredPlaylists) {
-        queueAdd(playlistName, track.uri);
-        // Pre-resolve playlist IDs now (even in dry-run we log what would happen)
-        if (!DRY_RUN) {
-          await resolvePlaylistId(playlistName);
+        for (const playlistName of filteredPlaylists) {
+          queueAdd(playlistName, track.uri);
         }
-      }
-
-      // Persist to DB (skipped in dry-run)
-      if (!DRY_RUN) {
+      } else {
+        // Persist to DB FIRST so any later Spotify error still leaves the local
+        // state truthful about what we *intend* to have on Spotify. (Spotify
+        // adds are idempotent — re-running is safe.)
         upsertTrack(db, track, new Date().toISOString(), taxonomy.taxonomyVersion);
         recordClassifications(db, track.id, filteredPlaylists);
+
+        // Remove from old playlists that aren't in the new set
+        for (const oldName of oldPlaylists) {
+          if (newSetForTrack.has(oldName)) continue;
+          const playlistId = await resolvePlaylistId(oldName);
+          await removeTracksFromPlaylist(spotify, playlistId, [track.uri]);
+          playlistNamesTouched.add(oldName);
+        }
+        // Apply new assignments immediately (one small POST per playlist)
+        for (const playlistName of filteredPlaylists) {
+          if (oldPlaylists.includes(playlistName)) continue; // already there
+          const playlistId = await resolvePlaylistId(playlistName);
+          await addTracksToPlaylist(spotify, playlistId, [track.uri]);
+          playlistNamesTouched.add(playlistName);
+        }
       }
 
       if (isReclassify) {
@@ -528,14 +541,21 @@ async function main(): Promise<void> {
   for (const id of removedIds) {
     try {
       const playlists = getClassifications(db, id);
-      // Reconstruct URI from ID
       const uri = `spotify:track:${id}`;
-      for (const playlistName of playlists) {
-        queueRemove(playlistName, uri);
-      }
 
-      if (!DRY_RUN) {
+      if (DRY_RUN) {
+        for (const playlistName of playlists) queueRemove(playlistName, uri);
+      } else {
+        // Mark removed in DB first; if a Spotify call fails halfway through
+        // the playlists, a re-run will skip this track (already removed) and
+        // the leftover Spotify-side rows just sit until the user notices.
+        // Acceptable trade for durability.
         markRemoved(db, id, new Date().toISOString());
+        for (const playlistName of playlists) {
+          const playlistId = await resolvePlaylistId(playlistName);
+          await removeTracksFromPlaylist(spotify, playlistId, [uri]);
+          playlistNamesTouched.add(playlistName);
+        }
       }
 
       tracksRemoved++;
@@ -555,27 +575,9 @@ async function main(): Promise<void> {
     }
   }
 
-  // ── 11. Execute batched Spotify writes ────────────────────────────────────
-  if (!DRY_RUN) {
-    // Resolve all playlist IDs for toRemove playlists too (they might not be cached)
-    const allPlaylistNames = new Set([...toAdd.keys(), ...toRemove.keys()]);
-    playlistsAffected = allPlaylistNames.size;
-
-    for (const [playlistName, uris] of toAdd.entries()) {
-      if (uris.length === 0) continue;
-      const playlistId = await resolvePlaylistId(playlistName);
-      await addTracksToPlaylist(spotify, playlistId, uris);
-    }
-
-    for (const [playlistName, uris] of toRemove.entries()) {
-      if (uris.length === 0) continue;
-      const playlistId = await resolvePlaylistId(playlistName);
-      await removeTracksFromPlaylist(spotify, playlistId, uris);
-    }
-  } else {
-    // In dry-run: just count what would happen
+  // ── 11. Tally affected playlists ──────────────────────────────────────────
+  if (DRY_RUN) {
     playlistsAffected = new Set([...toAdd.keys(), ...toRemove.keys()]).size;
-
     console.error('\n[dry-run] would add:');
     for (const [name, uris] of toAdd.entries()) {
       console.error(`  ${name}: ${uris.length} track(s)`);
@@ -584,6 +586,8 @@ async function main(): Promise<void> {
     for (const [name, uris] of toRemove.entries()) {
       console.error(`  ${name}: ${uris.length} track(s)`);
     }
+  } else {
+    playlistsAffected = playlistNamesTouched.size;
   }
 
   // ── 12. Summary ───────────────────────────────────────────────────────────
