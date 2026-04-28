@@ -129,22 +129,51 @@ function escapeXml(s: string): string {
 }
 
 function overlaySvg(name: string): Buffer {
-  // Auto-shrink long names. Eyeballed for ~1024px.
-  const fontSize = name.length > 16 ? 60 : name.length > 12 ? 76 : 92;
   const safe = escapeXml(name);
+  const cornerPad = 96;             // distance from canvas edge (was 48/56)
+  const labelPadX = 40;             // horizontal padding inside the label
+  const labelPadY = 26;             // vertical padding inside the label
+  const cornerRadius = 20;
+  const charWidth = 0.58;           // empirical — bold Helvetica avg-width ratio
+  const minFontSize = 64;
+  const maxFontSize = 124;          // bigger than before
+  const maxLabelWidth = FINAL_SIZE - cornerPad * 2;
+
+  // Start big and shrink until the label fits within the available width.
+  let fontSize = maxFontSize;
+  let textWidth = name.length * fontSize * charWidth;
+  while (textWidth + labelPadX * 2 > maxLabelWidth && fontSize > minFontSize) {
+    fontSize -= 4;
+    textWidth = name.length * fontSize * charWidth;
+  }
+
+  const labelWidth = Math.ceil(textWidth + labelPadX * 2);
+  const labelHeight = fontSize + labelPadY * 2;
+  const labelX = cornerPad;
+  const labelY = FINAL_SIZE - cornerPad - labelHeight;
+  const textX = labelX + labelPadX;
+  // Baseline ≈ top of label + topPad + (fontSize * cap-height fudge)
+  const textY = labelY + labelPadY + fontSize * 0.82;
+
   const svg = `
 <svg width="${FINAL_SIZE}" height="${FINAL_SIZE}" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="g" x1="0" y1="0.55" x2="0" y2="1">
+    <linearGradient id="bgFade" x1="0" y1="0.55" x2="0" y2="1">
       <stop offset="0%" stop-color="black" stop-opacity="0"/>
-      <stop offset="60%" stop-color="black" stop-opacity="0.55"/>
-      <stop offset="100%" stop-color="black" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="black" stop-opacity="0.5"/>
     </linearGradient>
+    <filter id="lift" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.35"/>
+    </filter>
   </defs>
-  <rect x="0" y="${FINAL_SIZE * 0.45}" width="${FINAL_SIZE}" height="${FINAL_SIZE * 0.55}" fill="url(#g)"/>
-  <text x="48" y="${FINAL_SIZE - 56}" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
-        font-weight="900" font-size="${fontSize}" fill="white"
-        style="paint-order: stroke; stroke: rgba(0,0,0,0.4); stroke-width: 2">${safe}</text>
+  <rect x="0" y="${FINAL_SIZE * 0.45}" width="${FINAL_SIZE}" height="${FINAL_SIZE * 0.55}" fill="url(#bgFade)"/>
+  <rect x="${labelX}" y="${labelY}" width="${labelWidth}" height="${labelHeight}"
+        rx="${cornerRadius}" ry="${cornerRadius}"
+        fill="white" fill-opacity="0.96" filter="url(#lift)"/>
+  <text x="${textX}" y="${textY}"
+        font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-weight="900" font-size="${fontSize}" fill="#0a0a0a"
+        letter-spacing="-1">${safe}</text>
 </svg>`.trim();
   return Buffer.from(svg);
 }
