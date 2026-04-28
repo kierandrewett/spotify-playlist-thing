@@ -13,7 +13,7 @@
 
 import 'dotenv/config';
 import { existsSync } from 'node:fs';
-import { writeFile, mkdir } from 'node:fs/promises';
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Database } from 'better-sqlite3';
 import sharp from 'sharp';
@@ -197,7 +197,7 @@ async function composeArt(name: string, imageBuffers: Buffer[]): Promise<Buffer>
 
 interface ProcessResult {
   name: string;
-  status: 'generated' | 'cached' | 'skipped-not-ready' | 'skipped-no-mapping' | 'error';
+  status: 'generated' | 'reuploaded' | 'skipped-not-ready' | 'skipped-no-mapping' | 'error';
   message?: string;
 }
 
@@ -213,48 +213,57 @@ async function processPlaylist(
 ): Promise<ProcessResult> {
   const cachePath = join(ART_DIR, `${slugify(name)}.jpg`);
 
-  if (!FORCE && existsSync(cachePath)) {
-    return { name, status: 'cached' };
-  }
-
   const playlistId = getPlaylistMapping(db, name);
   if (!playlistId) {
     return { name, status: 'skipped-no-mapping', message: 'no Spotify playlist id in state DB — run sync first' };
   }
 
-  const trackIds = recentTracksForPlaylist(db, name);
+  // Cache check: if a JPEG already exists and we're not in --force mode, just
+  // re-upload it. We can't tell from disk alone whether the previous upload
+  // actually succeeded (e.g. earlier runs without ugc-image-upload scope wrote
+  // the file but the upload 403'd). Re-uploading is idempotent on Spotify's
+  // side and cheap, so always do it.
+  let jpeg: Buffer;
+  let regenerated: boolean;
 
-  // Resolve to unique album image URLs (preserve recency order).
-  const seenAlbums = new Set<string>();
-  const uniqueImageUrls: string[] = [];
-  for (const id of trackIds) {
-    const t = trackById.get(id);
-    if (!t?.album?.id || !t.album.images || t.album.images.length === 0) continue;
-    if (seenAlbums.has(t.album.id)) continue;
-    seenAlbums.add(t.album.id);
-    uniqueImageUrls.push(t.album.images[0].url);
-    if (uniqueImageUrls.length === 4) break;
+  if (!FORCE && existsSync(cachePath)) {
+    jpeg = await readFile(cachePath);
+    regenerated = false;
+  } else {
+    const trackIds = recentTracksForPlaylist(db, name);
+
+    const seenAlbums = new Set<string>();
+    const uniqueImageUrls: string[] = [];
+    for (const id of trackIds) {
+      const t = trackById.get(id);
+      if (!t?.album?.id || !t.album.images || t.album.images.length === 0) continue;
+      if (seenAlbums.has(t.album.id)) continue;
+      seenAlbums.add(t.album.id);
+      uniqueImageUrls.push(t.album.images[0].url);
+      if (uniqueImageUrls.length === 4) break;
+    }
+
+    if (uniqueImageUrls.length < 4) {
+      return {
+        name,
+        status: 'skipped-not-ready',
+        message: `${uniqueImageUrls.length}/4 distinct albums (need 4)`,
+      };
+    }
+
+    const buffers = await Promise.all(uniqueImageUrls.map(downloadImage));
+    jpeg = await composeArt(name, buffers);
+
+    await mkdir(ART_DIR, { recursive: true });
+    await writeFile(cachePath, jpeg);
+    regenerated = true;
   }
-
-  // Wait until the playlist has 4 distinct albums to anchor the 2×2 grid —
-  // anything less ends up looking sparse or repetitive.
-  if (uniqueImageUrls.length < 4) {
-    return {
-      name,
-      status: 'skipped-not-ready',
-      message: `${uniqueImageUrls.length}/4 distinct albums (need 4)`,
-    };
-  }
-
-  const buffers = await Promise.all(uniqueImageUrls.map(downloadImage));
-  const jpeg = await composeArt(name, buffers);
-
-  await mkdir(ART_DIR, { recursive: true });
-  await writeFile(cachePath, jpeg);
 
   await uploadPlaylistImage(spotify, playlistId, jpeg.toString('base64'));
 
-  return { name, status: 'generated', message: `${uniqueImageUrls.length} album(s), ${jpeg.length}B jpeg` };
+  return regenerated
+    ? { name, status: 'generated', message: `${jpeg.length}B jpeg` }
+    : { name, status: 'reuploaded', message: `from cache, ${jpeg.length}B` };
 }
 
 // ── Entrypoint ────────────────────────────────────────────────────────────────
@@ -307,7 +316,7 @@ async function main(): Promise<void> {
         const r = await processPlaylist(entry.name, db, spotify, trackById);
         results.push(r);
         const tag = r.status === 'generated' ? '✓'
-          : r.status === 'cached' ? '·'
+          : r.status === 'reuploaded' ? '↑'
           : r.status === 'error' ? '✗'
           : '⏳';
         console.error(`[art] ${tag} ${entry.name}${r.message ? ` — ${r.message}` : ''}`);
