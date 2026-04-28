@@ -97,7 +97,7 @@ interface SpotifyClientState {
 // Token management
 // ---------------------------------------------------------------------------
 
-const REQUEST_TIMEOUT_MS = 30_000;
+const REQUEST_TIMEOUT_MS = 10_000;
 
 /**
  * Wrap fetch with an AbortController so requests can't hang indefinitely.

@@ -463,16 +463,31 @@ async function main(): Promise<void> {
       console.error(`[sync] all ${taxonomy.playlists.length} playlists already mapped`);
     } else {
       console.error(
-        `[sync] resolving ${missingMappings.length}/${taxonomy.playlists.length} playlists not yet mapped (1 paginated list + per-missing create)…`,
+        `[sync] resolving ${missingMappings.length}/${taxonomy.playlists.length} playlists not yet mapped…`,
       );
-      const userPlaylists = await listUserPlaylists(spotify);
-      const byName = new Map(userPlaylists.map((p) => [p.name, p.id]));
+      // Try a paginated lookup first to avoid creating duplicates if the
+      // playlists already exist on Spotify (e.g. from a prior failed run).
+      // If the lookup fails (network stall, rate-limit, etc.), fall back to
+      // direct creates — duplicates are recoverable, hung syncs aren't.
+      let byName: Map<string, string>;
+      try {
+        const userPlaylists = await listUserPlaylists(spotify);
+        byName = new Map(userPlaylists.map((p) => [p.name, p.id]));
+        console.error(`[sync] indexed ${userPlaylists.length} existing user playlists`);
+      } catch (err) {
+        console.error(
+          `[sync] listUserPlaylists failed (${String(err).slice(0, 200)}) — proceeding with direct creates; manually delete any duplicates`,
+        );
+        byName = new Map();
+      }
       for (const entry of missingMappings) {
         const fullName = `${taxonomy.playlistPrefix}${entry.name}`;
         let playlistId = byName.get(fullName);
         if (!playlistId) {
           playlistId = await createPrivatePlaylist(spotify, fullName);
           console.error(`[sync] created "${fullName}"`);
+        } else {
+          console.error(`[sync] reusing existing "${fullName}"`);
         }
         setPlaylistMapping(db, entry.name, playlistId);
       }
