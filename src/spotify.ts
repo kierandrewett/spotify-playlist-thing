@@ -356,8 +356,12 @@ export async function listUserPlaylists(
   client: SpotifyClient,
 ): Promise<Array<{ id: string; name: string }>> {
   const state = client._internal;
-  const MAX_PAGES = 200; // 200 × 50 = 10 000 playlists; far more than any sensible user
-  let url: string | null = 'https://api.spotify.com/v1/me/playlists?limit=50';
+  const MAX_PAGES = 200;
+  // Trim the response: only ask for the fields we actually use. Each full
+  // /me/playlists item is ~5KB (images, owners, snapshot, track summary, ...);
+  // with limit=50 a page can be 250KB+, which has been observed to stall
+  // undici's body parser. Asking for items(id,name)+next drops it to ~5KB.
+  let url: string | null = 'https://api.spotify.com/v1/me/playlists?limit=50&fields=items(id,name),next';
   const out: Array<{ id: string; name: string }> = [];
   let pages = 0;
   console.error('[spotify] listUserPlaylists: starting paginated fetch');
@@ -367,7 +371,9 @@ export async function listUserPlaylists(
       console.error(`[spotify] listUserPlaylists hit MAX_PAGES (${MAX_PAGES}) — stopping pagination`);
       break;
     }
+    console.error(`[spotify] listUserPlaylists page ${pages}: fetching…`);
     const res = await spotifyFetch(state, url);
+    console.error(`[spotify] listUserPlaylists page ${pages}: parsing body…`);
     const page = (await res.json()) as SpotifyPagingObject<SpotifyPlaylistObject>;
     for (const p of page.items) out.push({ id: p.id, name: p.name });
     console.error(`[spotify] listUserPlaylists page ${pages}: +${page.items.length} (total ${out.length})`);
