@@ -22,7 +22,6 @@ import {
   addTracksToPlaylist,
   removeTracksFromPlaylist,
   replacePlaylistItems,
-  listUserPlaylists,
   createPrivatePlaylist,
 } from './spotify.js';
 import { createLastfmClient, getTrackTags } from './lastfm.js';
@@ -462,34 +461,19 @@ async function main(): Promise<void> {
     if (missingMappings.length === 0) {
       console.error(`[sync] all ${taxonomy.playlists.length} playlists already mapped`);
     } else {
+      // Just create. We don't try to look up existing playlists by name
+      // first — that requires paginating the user's entire library which
+      // is slow and rate-limit-prone. The only downside is occasional
+      // duplicates if the DB mapping ever gets lost while the playlist
+      // still exists on Spotify; trivial to clean manually.
       console.error(
-        `[sync] resolving ${missingMappings.length}/${taxonomy.playlists.length} playlists not yet mapped…`,
+        `[sync] creating ${missingMappings.length}/${taxonomy.playlists.length} missing playlists…`,
       );
-      // Try a paginated lookup first to avoid creating duplicates if the
-      // playlists already exist on Spotify (e.g. from a prior failed run).
-      // If the lookup fails (network stall, rate-limit, etc.), fall back to
-      // direct creates — duplicates are recoverable, hung syncs aren't.
-      let byName: Map<string, string>;
-      try {
-        const userPlaylists = await listUserPlaylists(spotify);
-        byName = new Map(userPlaylists.map((p) => [p.name, p.id]));
-        console.error(`[sync] indexed ${userPlaylists.length} existing user playlists`);
-      } catch (err) {
-        console.error(
-          `[sync] listUserPlaylists failed (${String(err).slice(0, 200)}) — proceeding with direct creates; manually delete any duplicates`,
-        );
-        byName = new Map();
-      }
       for (const entry of missingMappings) {
         const fullName = `${taxonomy.playlistPrefix}${entry.name}`;
-        let playlistId = byName.get(fullName);
-        if (!playlistId) {
-          playlistId = await createPrivatePlaylist(spotify, fullName);
-          console.error(`[sync] created "${fullName}"`);
-        } else {
-          console.error(`[sync] reusing existing "${fullName}"`);
-        }
+        const playlistId = await createPrivatePlaylist(spotify, fullName);
         setPlaylistMapping(db, entry.name, playlistId);
+        console.error(`[sync] created "${fullName}"`);
       }
     }
 
