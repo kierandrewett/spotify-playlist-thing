@@ -205,17 +205,26 @@ async function spotifyFetch(
     return spotifyFetch(state, url, options, attempt, true);
   }
 
-  if (res.status === 429 && attempt < SPOTIFY_MAX_ATTEMPTS) {
+  if (res.status === 429) {
     const retryAfterRaw = Number(res.headers.get('Retry-After') ?? '1');
-    // Spotify can return punitive Retry-After values (minutes, hours) when
-    // it's really fed up. Cap at 60s per attempt — better to fail fast and
-    // let the user re-run later than silently sleep for ages.
-    const retryAfter = Math.min(60, Math.max(1, retryAfterRaw));
-    console.error(
-      `[spotify] rate-limited (429) on ${options.method ?? 'GET'} ${new URL(url).pathname}; Retry-After=${retryAfterRaw}s, sleeping ${retryAfter}s (attempt ${attempt}/${SPOTIFY_MAX_ATTEMPTS - 1})`,
-    );
-    await sleep(retryAfter * 1000);
-    return spotifyFetch(state, url, options, attempt + 1, refreshedOnce);
+    const endpoint = new URL(url).pathname;
+    // If Spotify is asking for >5 minutes, the IP/account is hard-throttled.
+    // No amount of in-process retries will help — bail with a clear message
+    // so the user knows to wait it out.
+    if (retryAfterRaw > 300) {
+      const hours = (retryAfterRaw / 3600).toFixed(1);
+      throw new Error(
+        `Spotify hard rate-limit on ${options.method ?? 'GET'} ${endpoint}: Retry-After=${retryAfterRaw}s (~${hours}h). Aborting — try again later.`,
+      );
+    }
+    if (attempt < SPOTIFY_MAX_ATTEMPTS) {
+      const retryAfter = Math.min(60, Math.max(1, retryAfterRaw));
+      console.error(
+        `[spotify] rate-limited (429) on ${options.method ?? 'GET'} ${endpoint}; Retry-After=${retryAfterRaw}s, sleeping ${retryAfter}s (attempt ${attempt}/${SPOTIFY_MAX_ATTEMPTS - 1})`,
+      );
+      await sleep(retryAfter * 1000);
+      return spotifyFetch(state, url, options, attempt + 1, refreshedOnce);
+    }
   }
 
   if (SPOTIFY_TRANSIENT_STATUSES.has(res.status) && attempt < SPOTIFY_MAX_ATTEMPTS) {
