@@ -1,7 +1,7 @@
 playlist_prefix: "🎧 "
 max_playlists_per_track: 2
 taxonomy_version: 9
-classifier_model: "anthropic/claude-sonnet-4.6"
+classifier_model: "google/gemini-2.5-flash-lite"
 
 # Each entry becomes a Spotify playlist named "<playlist_prefix><name>".
 # The LLM reads these definitions verbatim when classifying each track, so
