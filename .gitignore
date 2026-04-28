@@ -9,3 +9,4 @@ state.sqlite-shm
 dist/
 .DS_Store
 art/
+.cache/

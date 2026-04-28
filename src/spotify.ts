@@ -299,7 +299,9 @@ export async function getCurrentUserId(client: SpotifyClient): Promise<string> {
 export async function getLikedTracks(client: SpotifyClient): Promise<SpotifyTrack[]> {
   const state = client._internal;
   const PAGE_SIZE = 50;
-  const POOL = 5;
+  // Pool of 2 — bursting at 5 helped trip Spotify's per-account rate limit;
+  // 2 keeps us comfortably under and is still ~2× faster than sequential.
+  const POOL = 2;
 
   function mapItem(item: SpotifySavedTrackObject): SpotifyTrack {
     const t = item.track;
@@ -390,19 +392,60 @@ export async function getArtists(
  * until exhausted. Use this once per sync instead of paginating per-name —
  * each call is N pages of API requests.
  */
+const PLAYLIST_CACHE_PATH = './.cache/user-playlists.json';
+const PLAYLIST_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+
+interface UserPlaylistCache {
+  fetched_at: string;
+  playlists: Array<{ id: string; name: string }>;
+}
+
+async function readPlaylistCache(): Promise<UserPlaylistCache | null> {
+  try {
+    const { readFile } = await import('node:fs/promises');
+    const raw = await readFile(PLAYLIST_CACHE_PATH, 'utf8');
+    const parsed = JSON.parse(raw) as UserPlaylistCache;
+    const age = Date.now() - new Date(parsed.fetched_at).getTime();
+    if (age > PLAYLIST_CACHE_TTL_MS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+async function writePlaylistCache(playlists: Array<{ id: string; name: string }>): Promise<void> {
+  try {
+    const { writeFile, mkdir } = await import('node:fs/promises');
+    await mkdir('./.cache', { recursive: true });
+    const payload: UserPlaylistCache = { fetched_at: new Date().toISOString(), playlists };
+    await writeFile(PLAYLIST_CACHE_PATH, JSON.stringify(payload, null, 2));
+  } catch (err) {
+    console.error(`[spotify] writePlaylistCache failed (continuing): ${String(err)}`);
+  }
+}
+
 export async function listUserPlaylists(
   client: SpotifyClient,
+  options: { forceRefresh?: boolean } = {},
 ): Promise<Array<{ id: string; name: string }>> {
+  if (!options.forceRefresh) {
+    const cached = await readPlaylistCache();
+    if (cached) {
+      console.error(`[spotify] listUserPlaylists: using cache (${cached.playlists.length} playlists, fetched ${cached.fetched_at})`);
+      return cached.playlists;
+    }
+  }
+
   const state = client._internal;
   const MAX_PAGES = 200;
   // Trim the response: only ask for the fields we actually use. Each full
   // /me/playlists item is ~5KB (images, owners, snapshot, track summary, ...);
-  // with limit=50 a page can be 250KB+, which has been observed to stall
-  // undici's body parser. Asking for items(id,name)+next drops it to ~5KB.
+  // asking for items(id,name)+next drops a page from 250KB+ to ~5KB and avoids
+  // an undici body-parse stall observed on big payloads.
   let url: string | null = 'https://api.spotify.com/v1/me/playlists?limit=50&fields=items(id,name),next';
   const out: Array<{ id: string; name: string }> = [];
   let pages = 0;
-  console.error('[spotify] listUserPlaylists: starting paginated fetch');
+  console.error('[spotify] listUserPlaylists: starting paginated fetch (no cache)');
   while (url !== null) {
     pages++;
     if (pages > MAX_PAGES) {
@@ -411,12 +454,12 @@ export async function listUserPlaylists(
     }
     console.error(`[spotify] listUserPlaylists page ${pages}: fetching…`);
     const res = await spotifyFetch(state, url);
-    console.error(`[spotify] listUserPlaylists page ${pages}: parsing body…`);
     const page = (await res.json()) as SpotifyPagingObject<SpotifyPlaylistObject>;
     for (const p of page.items) out.push({ id: p.id, name: p.name });
     console.error(`[spotify] listUserPlaylists page ${pages}: +${page.items.length} (total ${out.length})`);
     url = page.next;
   }
+  await writePlaylistCache(out);
   return out;
 }
 
