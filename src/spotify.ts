@@ -143,11 +143,16 @@ async function ensureFreshToken(state: SpotifyClientState): Promise<void> {
 // Low-level HTTP helper
 // ---------------------------------------------------------------------------
 
+/** HTTP statuses that mean "Spotify is having a moment, try again". */
+const SPOTIFY_TRANSIENT_STATUSES = new Set([502, 503, 504]);
+const SPOTIFY_MAX_ATTEMPTS = 4;
+
 async function spotifyFetch(
   state: SpotifyClientState,
   url: string,
   options: RequestInit = {},
-  retried = false,
+  attempt = 1,
+  refreshedOnce = false,
 ): Promise<Response> {
   await ensureFreshToken(state);
 
@@ -156,20 +161,47 @@ async function spotifyFetch(
     ...(options.headers as Record<string, string> | undefined),
   };
 
-  const res = await fetch(url, { ...options, headers });
-
-  if (res.status === 401 && !retried) {
-    // Force a token refresh and retry once.
-    await refreshTokens(state);
-    return spotifyFetch(state, url, options, true);
+  let res: Response;
+  try {
+    res = await fetch(url, { ...options, headers });
+  } catch (err) {
+    // Network-level failure (TypeError, ECONNRESET, etc.) — retry with backoff.
+    const isNetworkError =
+      err instanceof TypeError ||
+      (err instanceof Error && /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND/.test(err.message));
+    if (isNetworkError && attempt < SPOTIFY_MAX_ATTEMPTS) {
+      const backoffMs = 1000 * 2 ** (attempt - 1);
+      console.error(
+        `[spotify] network error on ${options.method ?? 'GET'} ${new URL(url).pathname}, retrying in ${backoffMs}ms (attempt ${attempt}/${SPOTIFY_MAX_ATTEMPTS - 1}): ${String(err)}`,
+      );
+      await sleep(backoffMs);
+      return spotifyFetch(state, url, options, attempt + 1, refreshedOnce);
+    }
+    throw err;
   }
 
-  if (res.status === 429) {
+  if (res.status === 401 && !refreshedOnce) {
+    // Force a token refresh and retry once.
+    await refreshTokens(state);
+    return spotifyFetch(state, url, options, attempt, true);
+  }
+
+  if (res.status === 429 && attempt < SPOTIFY_MAX_ATTEMPTS) {
     const retryAfter = Number(res.headers.get('Retry-After') ?? '1');
     await sleep(retryAfter * 1000);
-    if (!retried) {
-      return spotifyFetch(state, url, options, true);
-    }
+    return spotifyFetch(state, url, options, attempt + 1, refreshedOnce);
+  }
+
+  if (SPOTIFY_TRANSIENT_STATUSES.has(res.status) && attempt < SPOTIFY_MAX_ATTEMPTS) {
+    const retryAfter = Number(res.headers.get('Retry-After'));
+    const backoffMs = Number.isFinite(retryAfter) && retryAfter > 0
+      ? retryAfter * 1000
+      : 1000 * 2 ** (attempt - 1); // 1s, 2s, 4s
+    console.error(
+      `[spotify] transient ${res.status} on ${options.method ?? 'GET'} ${new URL(url).pathname}, retrying in ${backoffMs}ms (attempt ${attempt}/${SPOTIFY_MAX_ATTEMPTS - 1})`,
+    );
+    await sleep(backoffMs);
+    return spotifyFetch(state, url, options, attempt + 1, refreshedOnce);
   }
 
   if (!res.ok) {
