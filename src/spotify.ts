@@ -282,40 +282,62 @@ export async function getCurrentUserId(client: SpotifyClient): Promise<string> {
 
 export async function getLikedTracks(client: SpotifyClient): Promise<SpotifyTrack[]> {
   const state = client._internal;
-  const tracks: SpotifyTrack[] = [];
-  let url: string | null =
-    'https://api.spotify.com/v1/me/tracks?limit=50&offset=0';
+  const PAGE_SIZE = 50;
+  const POOL = 5;
 
-  while (url !== null) {
-    const res = await spotifyFetch(state, url);
-    const page = (await res.json()) as SpotifyPagingObject<SpotifySavedTrackObject>;
-
-    for (const item of page.items) {
-      const t = item.track;
-      const artists: SpotifyArtistRef[] = t.artists.map((a) => ({
-        id: a.id,
-        name: a.name,
-      }));
-
-      tracks.push({
-        id: t.id,
-        uri: t.uri,
-        name: t.name,
-        artists,
-        album: {
-          id: t.album.id,
-          name: t.album.name,
-          release_date: t.album.release_date,
-        },
-        isrc: t.external_ids?.isrc ?? null,
-        preview_url: t.preview_url,
-        added_at: item.added_at,
-      });
-    }
-
-    url = page.next;
+  function mapItem(item: SpotifySavedTrackObject): SpotifyTrack {
+    const t = item.track;
+    return {
+      id: t.id,
+      uri: t.uri,
+      name: t.name,
+      artists: t.artists.map((a) => ({ id: a.id, name: a.name })),
+      album: { id: t.album.id, name: t.album.name, release_date: t.album.release_date },
+      isrc: t.external_ids?.isrc ?? null,
+      preview_url: t.preview_url,
+      added_at: item.added_at,
+    };
   }
 
+  // First page (sequential) — gives us `total` so we can fan out.
+  const firstUrl = `https://api.spotify.com/v1/me/tracks?limit=${PAGE_SIZE}&offset=0`;
+  const firstRes = await spotifyFetch(state, firstUrl);
+  const firstPage = (await firstRes.json()) as SpotifyPagingObject<SpotifySavedTrackObject>;
+
+  const total = firstPage.total ?? firstPage.items.length;
+  const tracks: SpotifyTrack[] = firstPage.items.map(mapItem);
+
+  if (total <= PAGE_SIZE) return tracks;
+
+  // Compute remaining offsets and fetch in parallel with bounded concurrency.
+  const offsets: number[] = [];
+  for (let off = PAGE_SIZE; off < total; off += PAGE_SIZE) offsets.push(off);
+
+  const pageBuckets = new Array<SpotifyTrack[] | undefined>(offsets.length);
+  let cursor = 0;
+  let completed = 1; // first page already done
+
+  async function worker(): Promise<void> {
+    while (true) {
+      const i = cursor++;
+      if (i >= offsets.length) return;
+      const url = `https://api.spotify.com/v1/me/tracks?limit=${PAGE_SIZE}&offset=${offsets[i]}`;
+      const res = await spotifyFetch(state, url);
+      const page = (await res.json()) as SpotifyPagingObject<SpotifySavedTrackObject>;
+      pageBuckets[i] = page.items.map(mapItem);
+      completed++;
+      if (completed % 10 === 0 || completed === offsets.length + 1) {
+        console.error(`[spotify] getLikedTracks: ${completed * PAGE_SIZE}/${total} fetched`);
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: POOL }, worker));
+
+  // Stitch the pages back in offset order so DB upsert order is stable.
+  for (const bucket of pageBuckets) {
+    if (bucket) tracks.push(...bucket);
+  }
   return tracks;
 }
 
