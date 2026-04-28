@@ -464,10 +464,17 @@ export async function generatePlaylistArt(
     return { name, status: 'skipped-no-tracks', message: 'no classified tracks with album art yet' };
   }
 
+  // While the cover is still growing toward the 4-album cap, regenerate on
+  // every sync so the layout updates as new albums get added (1-up → 2-up →
+  // 3-up → 2×2). Once we hit 4 distinct albums the layout is stable, so we
+  // fall back to the cache and only regenerate on --force.
+  const stillGrowing = uniqueImageUrls.length < 4;
+  const shouldRegenerate = force || stillGrowing || !existsSync(cachePath);
+
   let jpeg: Buffer;
   let regenerated: boolean;
 
-  if (!force && existsSync(cachePath)) {
+  if (!shouldRegenerate) {
     jpeg = await readFile(cachePath);
     regenerated = false;
   } else {
