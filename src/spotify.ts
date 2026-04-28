@@ -328,6 +328,50 @@ export async function getArtists(
   return results;
 }
 
+/**
+ * List EVERY playlist the user owns/follows. Paginates through `/me/playlists`
+ * until exhausted. Use this once per sync instead of paginating per-name —
+ * each call is N pages of API requests.
+ */
+export async function listUserPlaylists(
+  client: SpotifyClient,
+): Promise<Array<{ id: string; name: string }>> {
+  const state = client._internal;
+  let url: string | null = 'https://api.spotify.com/v1/me/playlists?limit=50';
+  const out: Array<{ id: string; name: string }> = [];
+  while (url !== null) {
+    const res = await spotifyFetch(state, url);
+    const page = (await res.json()) as SpotifyPagingObject<SpotifyPlaylistObject>;
+    for (const p of page.items) out.push({ id: p.id, name: p.name });
+    url = page.next;
+  }
+  return out;
+}
+
+/** Create a new private playlist owned by the current user. */
+export async function createPrivatePlaylist(
+  client: SpotifyClient,
+  name: string,
+): Promise<string> {
+  const state = client._internal;
+  const userId = await getCurrentUserId(client);
+  const res = await spotifyFetch(
+    state,
+    `https://api.spotify.com/v1/users/${encodeURIComponent(userId)}/playlists`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        public: false,
+        description: 'Auto-managed by spotify-playlist-thing',
+      } satisfies SpotifyCreatePlaylistBody),
+    },
+  );
+  const data = (await res.json()) as SpotifyPlaylistObject;
+  return data.id;
+}
+
 export async function getOrCreatePlaylist(
   client: SpotifyClient,
   name: string,

@@ -22,6 +22,8 @@ import {
   addTracksToPlaylist,
   removeTracksFromPlaylist,
   replacePlaylistItems,
+  listUserPlaylists,
+  createPrivatePlaylist,
 } from './spotify.js';
 import { createLastfmClient, getTrackTags } from './lastfm.js';
 import { createMusicbrainzClient, lookupByIsrc } from './musicbrainz.js';
@@ -447,12 +449,33 @@ async function main(): Promise<void> {
 
   // ── Pre-create every taxonomy playlist on Spotify ────────────────────────
   // Optimistic creation: surfaces all playlists in the user's sidebar
-  // immediately, eliminates a race when parallel classify tasks both need
-  // the same uncreated playlist, and fails fast if Spotify is unhappy.
+  // immediately and eliminates a race when parallel classify tasks both
+  // need the same uncreated playlist.
+  //
+  // Batched: instead of calling getOrCreatePlaylist per missing playlist
+  // (which paginates the whole user library each time), we list once and
+  // resolve all unmapped names from a single in-memory map.
   if (!DRY_RUN) {
-    console.error(`[sync] ensuring ${taxonomy.playlists.length} playlists exist on Spotify…`);
-    for (const entry of taxonomy.playlists) {
-      await resolvePlaylistId(entry.name);
+    const missingMappings = taxonomy.playlists.filter(
+      (e) => !getPlaylistMapping(db, e.name),
+    );
+    if (missingMappings.length === 0) {
+      console.error(`[sync] all ${taxonomy.playlists.length} playlists already mapped`);
+    } else {
+      console.error(
+        `[sync] resolving ${missingMappings.length}/${taxonomy.playlists.length} playlists not yet mapped (1 paginated list + per-missing create)…`,
+      );
+      const userPlaylists = await listUserPlaylists(spotify);
+      const byName = new Map(userPlaylists.map((p) => [p.name, p.id]));
+      for (const entry of missingMappings) {
+        const fullName = `${taxonomy.playlistPrefix}${entry.name}`;
+        let playlistId = byName.get(fullName);
+        if (!playlistId) {
+          playlistId = await createPrivatePlaylist(spotify, fullName);
+          console.error(`[sync] created "${fullName}"`);
+        }
+        setPlaylistMapping(db, entry.name, playlistId);
+      }
     }
 
     // ── Generate / re-upload art + refresh descriptions ─────────────────
@@ -468,14 +491,18 @@ async function main(): Promise<void> {
         let generated = 0;
         let reuploaded = 0;
         let skipped = 0;
+        let i = 0;
         for (const entry of taxonomy.playlists) {
+          i++;
           try {
             const r = await generatePlaylistArt(entry, spotify, db, artTrackById, { force: false });
+            const tag = r.status === 'generated' ? '✓' : r.status === 'reuploaded' ? '↑' : '⊘';
+            console.error(`[sync] art ${i}/${taxonomy.playlists.length} ${tag} ${entry.name}${r.message ? ` — ${r.message}` : ''}`);
             if (r.status === 'generated') generated++;
             else if (r.status === 'reuploaded') reuploaded++;
             else skipped++;
           } catch (err) {
-            console.error(`[sync] art failed for "${entry.name}": ${String(err)}`);
+            console.error(`[sync] art ${i}/${taxonomy.playlists.length} ✗ ${entry.name} — ${String(err)}`);
             skipped++;
           }
         }
