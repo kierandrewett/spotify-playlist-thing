@@ -97,10 +97,23 @@ interface SpotifyClientState {
 // Token management
 // ---------------------------------------------------------------------------
 
+const REQUEST_TIMEOUT_MS = 30_000;
+
+/** Wrap fetch with an AbortController so requests can't hang indefinitely. */
+async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function refreshTokens(state: SpotifyClientState): Promise<void> {
   const credentials = Buffer.from(`${state.clientId}:${state.clientSecret}`).toString('base64');
 
-  const res = await fetch('https://accounts.spotify.com/api/token', {
+  const res = await fetchWithTimeout('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: {
       Authorization: `Basic ${credentials}`,
@@ -163,12 +176,13 @@ async function spotifyFetch(
 
   let res: Response;
   try {
-    res = await fetch(url, { ...options, headers });
+    res = await fetchWithTimeout(url, { ...options, headers });
   } catch (err) {
-    // Network-level failure (TypeError, ECONNRESET, etc.) — retry with backoff.
+    // Network-level failure (TypeError, ECONNRESET, AbortError on timeout) —
+    // retry with backoff so a stalled connection doesn't hang the run.
     const isNetworkError =
       err instanceof TypeError ||
-      (err instanceof Error && /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND/.test(err.message));
+      (err instanceof Error && /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|aborted|AbortError/i.test(err.message));
     if (isNetworkError && attempt < SPOTIFY_MAX_ATTEMPTS) {
       const backoffMs = 1000 * 2 ** (attempt - 1);
       console.error(
@@ -341,6 +355,7 @@ export async function listUserPlaylists(
   let url: string | null = 'https://api.spotify.com/v1/me/playlists?limit=50';
   const out: Array<{ id: string; name: string }> = [];
   let pages = 0;
+  console.error('[spotify] listUserPlaylists: starting paginated fetch');
   while (url !== null) {
     pages++;
     if (pages > MAX_PAGES) {
