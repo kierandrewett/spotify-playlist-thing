@@ -443,6 +443,17 @@ async function main(): Promise<void> {
   // Taxonomy name set for safety-filtering classifier output
   const taxonomyNames = new Set(taxonomy.playlists.map((p) => p.name));
 
+  // ── Pre-create every taxonomy playlist on Spotify ────────────────────────
+  // Optimistic creation: surfaces all 27 playlists in the user's sidebar
+  // immediately, eliminates a race when parallel classify tasks both need
+  // the same uncreated playlist, and fails fast if Spotify is unhappy.
+  if (!DRY_RUN) {
+    console.error(`[sync] ensuring ${taxonomy.playlists.length} playlists exist on Spotify…`);
+    for (const entry of taxonomy.playlists) {
+      await resolvePlaylistId(entry.name);
+    }
+  }
+
   // ── Summary counters ──────────────────────────────────────────────────────
   let tracksAdded = 0;
   let tracksReclassified = 0;
