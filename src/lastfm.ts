@@ -89,34 +89,70 @@ function toLastfmTag(raw: RawTag): LastfmTag {
   return { name: raw.name, weight };
 }
 
+/** HTTP statuses worth retrying with backoff. */
+const TRANSIENT_STATUSES = new Set([502, 503, 504, 429]);
+const MAX_ATTEMPTS = 4;
+
 /**
  * Fetch a URL and parse the JSON response.
  * Throws on non-2xx HTTP status or Last.fm API-level errors.
+ * Retries on 5xx / 429 / network errors with exponential backoff.
  */
 async function fetchJson(url: string): Promise<unknown> {
-  const res = await fetch(url, {
-    headers: { 'User-Agent': USER_AGENT },
-  });
+  let lastError: unknown = null;
 
-  if (!res.ok) {
-    throw new Error(
-      `Last.fm HTTP error: ${res.status} ${res.statusText} (url: ${url})`,
-    );
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': USER_AGENT },
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (
+          json !== null &&
+          typeof json === 'object' &&
+          'error' in (json as object)
+        ) {
+          const err = json as RawError;
+          throw new Error(`Last.fm API error ${err.error}: ${err.message}`);
+        }
+        return json;
+      }
+
+      if (TRANSIENT_STATUSES.has(res.status) && attempt < MAX_ATTEMPTS) {
+        const retryAfter = Number(res.headers.get('retry-after'));
+        const backoffMs = Number.isFinite(retryAfter) && retryAfter > 0
+          ? retryAfter * 1000
+          : 1000 * 2 ** (attempt - 1);
+        console.error(
+          `[lastfm] transient ${res.status} on ${url}, retrying in ${backoffMs}ms (attempt ${attempt}/${MAX_ATTEMPTS - 1})`,
+        );
+        await new Promise((r) => setTimeout(r, backoffMs));
+        continue;
+      }
+
+      throw new Error(
+        `Last.fm HTTP error: ${res.status} ${res.statusText} (url: ${url})`,
+      );
+    } catch (err) {
+      const isNetworkError =
+        err instanceof TypeError ||
+        (err instanceof Error && /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND/.test(err.message));
+      if (isNetworkError && attempt < MAX_ATTEMPTS) {
+        const backoffMs = 1000 * 2 ** (attempt - 1);
+        console.error(
+          `[lastfm] network error on ${url}, retrying in ${backoffMs}ms (attempt ${attempt}/${MAX_ATTEMPTS - 1}): ${String(err)}`,
+        );
+        await new Promise((r) => setTimeout(r, backoffMs));
+        lastError = err;
+        continue;
+      }
+      throw err;
+    }
   }
 
-  const json = await res.json();
-
-  // Last.fm returns HTTP 200 with {error, message} for API-level errors.
-  if (
-    json !== null &&
-    typeof json === 'object' &&
-    'error' in (json as object)
-  ) {
-    const err = json as RawError;
-    throw new Error(`Last.fm API error ${err.error}: ${err.message}`);
-  }
-
-  return json;
+  throw lastError ?? new Error(`Last.fm exhausted retries for ${url}`);
 }
 
 /**

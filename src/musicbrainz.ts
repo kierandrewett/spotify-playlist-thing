@@ -77,25 +77,66 @@ async function throttle(client: MusicbrainzClient): Promise<void> {
 
 // ── HTTP helper ────────────────────────────────────────────────────────────────
 
+/** HTTP statuses that indicate a transient failure worth retrying. */
+const TRANSIENT_STATUSES = new Set([502, 503, 504, 429]);
+const MAX_ATTEMPTS = 4;
+
 async function mbFetch(
   client: MusicbrainzClient,
   path: string,
 ): Promise<{ status: number; body: unknown }> {
-  await throttle(client);
   const url = `${MB_BASE_URL}/${path}`;
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': `spotify-playlist-thing/1.0 (${client.contactEmail})`,
-      Accept: 'application/json',
-    },
-  });
-  if (!response.ok && response.status !== 404) {
-    throw new Error(
-      `MusicBrainz request failed: HTTP ${response.status} for ${url}`,
-    );
+  let lastError: unknown = null;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    await throttle(client);
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': `spotify-playlist-thing/1.0 (${client.contactEmail})`,
+          Accept: 'application/json',
+        },
+      });
+
+      if (response.ok || response.status === 404) {
+        const body: unknown = response.status === 404 ? null : await response.json();
+        return { status: response.status, body };
+      }
+
+      if (TRANSIENT_STATUSES.has(response.status) && attempt < MAX_ATTEMPTS) {
+        const retryAfter = Number(response.headers.get('retry-after'));
+        const backoffMs = Number.isFinite(retryAfter) && retryAfter > 0
+          ? retryAfter * 1000
+          : 1000 * 2 ** (attempt - 1); // 1s, 2s, 4s
+        console.error(
+          `[mb] transient ${response.status} on ${url}, retrying in ${backoffMs}ms (attempt ${attempt}/${MAX_ATTEMPTS - 1})`,
+        );
+        await new Promise((r) => setTimeout(r, backoffMs));
+        continue;
+      }
+
+      throw new Error(
+        `MusicBrainz request failed: HTTP ${response.status} for ${url}`,
+      );
+    } catch (err) {
+      // Network errors (TypeError: fetch failed, ECONNRESET, etc.) — retry too
+      const isNetworkError =
+        err instanceof TypeError ||
+        (err instanceof Error && /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND/.test(err.message));
+      if (isNetworkError && attempt < MAX_ATTEMPTS) {
+        const backoffMs = 1000 * 2 ** (attempt - 1);
+        console.error(
+          `[mb] network error on ${url}, retrying in ${backoffMs}ms (attempt ${attempt}/${MAX_ATTEMPTS - 1}): ${String(err)}`,
+        );
+        await new Promise((r) => setTimeout(r, backoffMs));
+        lastError = err;
+        continue;
+      }
+      throw err;
+    }
   }
-  const body: unknown = response.status === 404 ? null : await response.json();
-  return { status: response.status, body };
+
+  throw lastError ?? new Error(`MusicBrainz request exhausted retries for ${url}`);
 }
 
 // ── Aggregation helper ─────────────────────────────────────────────────────────
