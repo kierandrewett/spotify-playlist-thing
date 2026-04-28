@@ -33,6 +33,8 @@ import { getPlaylistMapping } from '../src/state.js';
 
 const ART_DIR = './art';
 const CD_OVERLAY_PATH = './assets/cd_overlay.png';
+const FONT_PATH = './assets/fonts/Inter-Black.ttf';
+const FONT_FAMILY = 'Inter Black'; // matches the TTF's family/style name
 const FINAL_SIZE = 1024;
 const HALF = FINAL_SIZE / 2;
 const MAX_TRACKS_TO_FETCH = 12; // we look at 12 most-recent classifications to find 4 distinct albums
@@ -254,9 +256,10 @@ async function renderText(
   const r = await sharp({
     text: {
       text: `<span foreground="${colour}">${pangoEscaped}</span>`,
-      // Pango font description: family, weight, size. "Heavy" maps to weight
-      // 900; Pango falls back to the nearest available weight for the family.
-      font: `sans Heavy ${fontSize}`,
+      // Pango font description. With `fontfile`, sharp registers the file with
+      // FontConfig and Pango can resolve it by family name.
+      font: `${FONT_FAMILY} ${fontSize}`,
+      fontfile: FONT_PATH,
       rgba: true,
     },
   }).png().toBuffer({ resolveWithObject: true });
