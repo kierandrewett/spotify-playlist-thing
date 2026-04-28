@@ -373,7 +373,10 @@ export async function removeTracksFromPlaylist(
     await spotifyFetch(state, url, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tracks: batch.map((uri) => ({ uri })) }),
+      // Feb 2026 endpoint: the new /items DELETE expects { uris: [...] },
+      // matching the POST shape. The legacy { tracks: [{uri}] } body now
+      // returns 400 "No uris provided".
+      body: JSON.stringify({ uris: batch }),
     });
   }
 }

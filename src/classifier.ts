@@ -32,6 +32,57 @@ const ResponseSchema = z.object({
   playlists: z.array(z.string()),
 });
 
+/**
+ * Parse JSON that may be embedded in surrounding prose. Tries strict
+ * JSON.parse first; if that fails, scans for the last `{...}` block (which
+ * is usually the final answer when models narrate their reasoning) and
+ * tries to parse that. Returns null if nothing parses.
+ */
+function parseLooseJson(text: string): unknown {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch { /* fall through */ }
+
+  // Strip Markdown code fences if present.
+  const fenceMatch = /```(?:json)?\s*([\s\S]*?)```/g;
+  let lastFence: string | null = null;
+  for (const m of trimmed.matchAll(fenceMatch)) lastFence = m[1];
+  if (lastFence) {
+    try {
+      return JSON.parse(lastFence.trim());
+    } catch { /* fall through */ }
+  }
+
+  // Last resort: scan for balanced `{...}` blocks and try the last one.
+  const candidates: string[] = [];
+  for (let i = 0; i < trimmed.length; i++) {
+    if (trimmed[i] !== '{') continue;
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    for (let j = i; j < trimmed.length; j++) {
+      const ch = trimmed[j];
+      if (escape) { escape = false; continue; }
+      if (ch === '\\') { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          candidates.push(trimmed.slice(i, j + 1));
+          break;
+        }
+      }
+    }
+  }
+  for (const c of candidates.reverse()) {
+    try { return JSON.parse(c); } catch { /* try next */ }
+  }
+  return null;
+}
+
 // ── Prompt builders ───────────────────────────────────────────────────────────
 
 function buildSystemPrompt(maxPlaylistsPerTrack: number): string {
@@ -156,10 +207,11 @@ export async function classify(
 
   const rawContent = completion.choices[0]?.message?.content ?? '';
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(rawContent);
-  } catch {
+  // Some models (notably Claude via OpenRouter) ignore response_format and
+  // wrap the JSON in conversational prose. Try a strict parse first, then
+  // fall back to extracting the last well-formed JSON object from the text.
+  const parsed = parseLooseJson(rawContent);
+  if (parsed === null) {
     throw new Error(
       `Classifier returned malformed JSON for track "${enriched.track.name}".\nRaw response: ${rawContent}`,
     );
