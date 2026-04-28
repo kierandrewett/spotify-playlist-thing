@@ -206,7 +206,14 @@ async function spotifyFetch(
   }
 
   if (res.status === 429 && attempt < SPOTIFY_MAX_ATTEMPTS) {
-    const retryAfter = Number(res.headers.get('Retry-After') ?? '1');
+    const retryAfterRaw = Number(res.headers.get('Retry-After') ?? '1');
+    // Spotify can return punitive Retry-After values (minutes, hours) when
+    // it's really fed up. Cap at 60s per attempt — better to fail fast and
+    // let the user re-run later than silently sleep for ages.
+    const retryAfter = Math.min(60, Math.max(1, retryAfterRaw));
+    console.error(
+      `[spotify] rate-limited (429) on ${options.method ?? 'GET'} ${new URL(url).pathname}; Retry-After=${retryAfterRaw}s, sleeping ${retryAfter}s (attempt ${attempt}/${SPOTIFY_MAX_ATTEMPTS - 1})`,
+    );
     await sleep(retryAfter * 1000);
     return spotifyFetch(state, url, options, attempt + 1, refreshedOnce);
   }
