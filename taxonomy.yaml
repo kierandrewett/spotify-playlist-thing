@@ -1,0 +1,380 @@
+playlist_prefix: "🎧 "
+max_playlists_per_track: 3
+taxonomy_version: 1
+classifier_model: "google/gemini-2.5-flash"
+
+# Each entry becomes a Spotify playlist named "<playlist_prefix><name>".
+# The LLM reads these definitions verbatim when classifying each track, so
+# write descriptions for the model, not just for yourself.
+#
+# Keys:
+#   name         — short Spotify playlist title (shown in your sidebar)
+#   description  — full prose for the LLM; explain vibe, use-case, and edge cases
+#   fits         — genre/vibe strings that strongly indicate this playlist
+#   audio_hints  — optional numeric guidance the LLM uses alongside Essentia data
+#   avoid        — if a track has these qualities, do NOT put it here
+#
+# Bump taxonomy_version (e.g. 1 → 2) to force re-classification of every cached
+# track — useful after restructuring entries or tightening descriptions.
+
+playlists:
+  - name: "Deep Focus"
+    description: >
+      Instrumental or near-wordless music for sustained cognitive work — coding,
+      reading, writing. Predictable and low-stimulation. No sudden dynamics,
+      no attention-grabbing hooks, no lyrics that pull focus. Feels like
+      background water rather than something to listen to. Ambient, lo-fi beats,
+      minimal electronic, slow instrumental post-rock all belong here.
+    fits:
+      - "ambient"
+      - "lo-fi"
+      - "lo-fi hip-hop"
+      - "instrumental post-rock"
+      - "minimal techno"
+      - "study music"
+      - "drone"
+      - "neoclassical"
+      - "background music"
+      - "focus"
+      - "instrumental"
+    audio_hints:
+      tempo: "<100 bpm"
+      energy: "low"
+      vocal: "low or none"
+    avoid:
+      - "heavy vocals"
+      - "sudden dynamic shifts"
+      - "aggressive percussion"
+      - "drops"
+      - "anthemic"
+
+  - name: "Hyperfocus Loop"
+    description: >
+      Propulsive, repetitive, hypnotic music that locks you into a task and
+      keeps you there. Not relaxing — stimulating but in a controlled,
+      tunnel-vision way. Minimal techno with long builds, krautrock motorik
+      grooves, driving post-rock without the climax, steady-state electronic.
+      Vocals should be absent or heavily processed into texture. The beat
+      should feel like it could run forever. Distinct from Deep Focus (which
+      is ambient/passive) — this has pulse and forward momentum.
+    fits:
+      - "minimal techno"
+      - "krautrock"
+      - "motorik"
+      - "post-rock"
+      - "industrial techno"
+      - "hypnotic techno"
+      - "repetitive electronic"
+      - "kosmische musik"
+      - "driving electronic"
+    audio_hints:
+      tempo: "110-130 bpm"
+      energy: "medium"
+      danceability: "medium-high"
+      vocal: "none or heavily processed"
+    avoid:
+      - "heavy lyrical content"
+      - "sudden tempo changes"
+      - "ballad"
+      - "singer-songwriter"
+
+  - name: "Body Doubling"
+    description: >
+      Gentle music with vocals that creates the feeling of companionable
+      presence without demanding attention — like working in a quiet cafe
+      where someone is singing softly nearby. Indie folk, lo-fi singer-songwriter,
+      bedroom pop, soft acoustic. Lyrics should be present but unobtrusive;
+      delivery mellow and conversational rather than theatrical. Mid-tempo,
+      low-to-medium energy. The test: does this feel like company?
+    fits:
+      - "indie folk"
+      - "lo-fi"
+      - "bedroom pop"
+      - "singer-songwriter"
+      - "acoustic"
+      - "soft rock"
+      - "dream pop"
+      - "shoegaze"
+      - "folk pop"
+    audio_hints:
+      energy: "low-medium"
+      vocal: "present, soft"
+      tempo: "70-110 bpm"
+    avoid:
+      - "aggressive"
+      - "metal"
+      - "high energy"
+      - "screaming"
+      - "hip-hop with dense wordplay"
+
+  - name: "Decompression"
+    description: >
+      For after sensory overload, meltdown recovery, or just needing to
+      wind all the way down. Extremely low stimulation — ambient, drone,
+      slow electronic pads, soft piano, field recordings. No percussion that
+      lands like a blow. No sudden dynamic shifts or unexpected sounds.
+      Temporal structure should be slow or absent. Think: lying in a dark
+      room with good headphones, letting the tension drain out.
+    fits:
+      - "ambient"
+      - "drone"
+      - "dark ambient"
+      - "lowercase"
+      - "field recording"
+      - "ambient classical"
+      - "new age"
+      - "healing"
+      - "meditation"
+      - "sleep music"
+    audio_hints:
+      energy: "very low"
+      tempo: "any — structure may be absent"
+      vocal: "none or sparse distant texture"
+    avoid:
+      - "sudden dynamic shifts"
+      - "loud distortion"
+      - "aggressive percussion"
+      - "drops"
+      - "loud"
+      - "upbeat"
+      - "vocals demanding attention"
+
+  - name: "Hype"
+    description: >
+      High-energy, anthemic music for physical activation — workouts, pre-task
+      priming, overcoming inertia. Should feel like it raises the room's energy
+      level. Upbeat hip-hop bangers, driving rock anthems, EDM with big drops,
+      power metal, hardstyle. Tempo fast, energy high, danceability high.
+      Lyrics can be motivational or just energetically delivered — content
+      matters less than delivery.
+    fits:
+      - "upbeat hip-hop"
+      - "rap"
+      - "rock anthems"
+      - "EDM"
+      - "hardstyle"
+      - "power metal"
+      - "punk"
+      - "drum and bass"
+      - "gym music"
+      - "workout"
+      - "pop punk"
+    audio_hints:
+      tempo: ">120 bpm"
+      energy: "high"
+      danceability: "high"
+      mood: "energetic"
+    avoid:
+      - "slow"
+      - "melancholy"
+      - "ambient"
+      - "ballad"
+      - "downtempo"
+
+  - name: "Anger Out"
+    description: >
+      For processing frustration, anger, or overwhelm in a productive and safe
+      way. Music that matches and channels the feeling rather than suppressing
+      it. Heavy metal, metalcore, hard rock, aggressive hip-hop, industrial,
+      noise rock, screamo. Energy should feel combative or cathartic. Vocals
+      can be harsh — screaming, shouting, aggressive rapping all fit.
+      This is not the same as Hype (which is fun/motivational) — this is
+      specifically about emotional discharge.
+    fits:
+      - "metal"
+      - "metalcore"
+      - "deathcore"
+      - "heavy metal"
+      - "hard rock"
+      - "industrial"
+      - "noise rock"
+      - "screamo"
+      - "aggressive hip-hop"
+      - "hardcore punk"
+      - "grindcore"
+      - "nu-metal"
+    audio_hints:
+      energy: "high"
+      mood: "aggressive"
+    avoid:
+      - "soft"
+      - "ambient"
+      - "pop"
+      - "happy"
+      - "uplifting"
+
+  - name: "Melancholy"
+    description: >
+      Sad, introspective, slow music for processing low moods rather than
+      fighting them. The goal is emotional acknowledgement, not cheering up.
+      Sad indie rock, slowcore, minimal piano, folk confessionals, sparse
+      electronic. Often quiet. Lyrics tend toward loss, longing, isolation.
+      Scale often minor. Distinguished from Decompression (which is ambient
+      and sensation-free) — Melancholy has emotional content and often vocals.
+    fits:
+      - "sad indie"
+      - "slowcore"
+      - "emo"
+      - "slow piano"
+      - "folk"
+      - "singer-songwriter"
+      - "dark folk"
+      - "post-punk"
+      - "dream pop"
+      - "rainy day"
+    audio_hints:
+      tempo: "<90 bpm"
+      mood: "sad"
+    avoid:
+      - "upbeat"
+      - "high energy"
+      - "dancefloor"
+      - "happy"
+      - "major key anthems"
+
+  - name: "Joy"
+    description: >
+      Uncomplicated, unambiguous happiness. Music that makes you want to
+      smile without any effort — feel-good pop, upbeat soul, sunny indie,
+      disco, classic pop hits, bubbly R&B. No ironic distance, no undertow
+      of sadness. Should feel like a clear summer day. Major key preferred.
+      Tempo mid-to-high. The test: does this make you feel lighter?
+    fits:
+      - "pop"
+      - "soul"
+      - "funk"
+      - "disco"
+      - "feel-good"
+      - "happy"
+      - "upbeat"
+      - "sunshine pop"
+      - "indie pop"
+      - "bubblegum pop"
+      - "R&B"
+    audio_hints:
+      tempo: "100-140 bpm"
+      mood: "happy"
+      energy: "medium-high"
+    avoid:
+      - "sad"
+      - "melancholy"
+      - "aggressive"
+      - "dark"
+      - "minor key heavy"
+
+  - name: "Nostalgia"
+    description: >
+      Songs that pull on memory and produce a sweet ache — bittersweet,
+      warm, slightly wistful. Often tied to specific decades or cultural
+      moments. Could be childhood music, formative albums, sounds that smell
+      like a particular time. The feeling is more important than the genre —
+      synth-pop that sounds like the 80s, Britpop that sounds like the 90s,
+      indie that sounds like a specific summer. Tags like "nostalgic", "retro",
+      "classic", "throwback" are strong signals. Emotional tone: longing mixed
+      with warmth, not pure sadness.
+    fits:
+      - "nostalgia"
+      - "retro"
+      - "classic rock"
+      - "80s"
+      - "90s"
+      - "throwback"
+      - "oldies"
+      - "britpop"
+      - "synth-pop"
+      - "new wave"
+      - "classic pop"
+    avoid:
+      - "aggressive"
+      - "avant-garde"
+      - "harsh noise"
+
+  - name: "Driving"
+    description: >
+      Music for being in motion — in a car, walking with purpose, commuting.
+      Propulsive without being exhausting. Mid-to-high tempo, melodically
+      engaging, vocals welcome. Indie rock road-trip feel, alternative with
+      momentum, classic rock with groove, hip-hop that bounces. Should feel
+      like a good stretch of highway — forward movement without stress.
+      Different from Hype (which is about activation/exercise) and Hyperfocus
+      Loop (which is more trance-like) — this has hooks and feels cinematic.
+    fits:
+      - "road trip"
+      - "driving"
+      - "indie rock"
+      - "alternative rock"
+      - "classic rock"
+      - "hip-hop"
+      - "country rock"
+      - "heartland rock"
+    audio_hints:
+      tempo: "95-130 bpm"
+      energy: "medium"
+    avoid:
+      - "ambient"
+      - "very slow"
+      - "drone"
+      - "decompression-style"
+
+  - name: "Cosy"
+    description: >
+      Warm, soft, low-stakes music for domestic comfort — reading on the
+      sofa, making tea, rainy Sunday afternoons. Acoustic guitar, fingerpicked
+      folk, gentle jazz, mellow indie, warm lo-fi. Nothing demanding. The
+      sonic equivalent of a blanket. Low energy, unhurried tempo, pleasant
+      without being cloyingly cheerful. Slightly different from Body Doubling
+      (which is about companionable presence for work) — Cosy is purely
+      about comfort with no productivity agenda.
+    fits:
+      - "acoustic"
+      - "jazz"
+      - "folk"
+      - "bossa nova"
+      - "lo-fi"
+      - "cozy"
+      - "warm"
+      - "coffeehouse"
+      - "mellow"
+      - "adult contemporary"
+      - "easy listening"
+    audio_hints:
+      energy: "low-medium"
+      tempo: "60-100 bpm"
+      vocal: "soft or absent"
+    avoid:
+      - "aggressive"
+      - "loud"
+      - "metal"
+      - "harsh"
+      - "high energy"
+
+  - name: "Curiosity Spark"
+    description: >
+      Strange, novel, attention-grabbing music for breaking out of a rut or
+      rewarding an exploratory mood. Experimental, avant-garde, unusual
+      instrumentation, unexpected genre fusions, music that makes you think
+      "what IS this?". Math rock, microtonal composition, glitch electronic,
+      free jazz, progressive rock with odd time signatures, contemporary
+      classical. No tempo or energy constraints — novelty and surprise are
+      the only criteria. If a track is weird in an interesting way, it belongs
+      here. Last.fm tags like "experimental", "weird", "avant-garde", "strange"
+      are strong signals.
+    fits:
+      - "experimental"
+      - "avant-garde"
+      - "math rock"
+      - "glitch"
+      - "microtonal"
+      - "free jazz"
+      - "contemporary classical"
+      - "noise"
+      - "progressive rock"
+      - "art rock"
+      - "post-modern"
+      - "weird"
+      - "strange"
+      - "unusual"
+    avoid:
+      - "generic pop"
+      - "straightforward"
+      - "radio-friendly"
