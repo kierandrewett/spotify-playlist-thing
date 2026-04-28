@@ -33,8 +33,8 @@ import { getPlaylistMapping } from '../src/state.js';
 
 const ART_DIR = './art';
 const CD_OVERLAY_PATH = './assets/cd_overlay.png';
-const FONT_PATH = './assets/fonts/Inter-SemiBold.ttf';
-const FONT_FAMILY = 'Inter SemiBold'; // matches the TTF's family/style name
+const FONT_PATH = './assets/fonts/InstrumentSerif-Regular.ttf';
+const FONT_FAMILY = 'Instrument Serif'; // matches the TTF's family name
 const FINAL_SIZE = 1024;
 const HALF = FINAL_SIZE / 2;
 const MAX_TRACKS_TO_FETCH = 12; // we look at 12 most-recent classifications to find 4 distinct albums
