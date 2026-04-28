@@ -39,6 +39,7 @@ import {
 } from './state.js';
 import { loadTaxonomy } from './taxonomy.js';
 import { createClassifier, classify } from './classifier.js';
+import { collectArtTrackIds, fetchTracksForArt, generatePlaylistArt } from './art.js';
 
 import type { SpotifyTrack, EnrichedTrack, TaxonomyConfig } from './types.js';
 import type { SpotifyClient } from './spotify.js';
@@ -444,13 +445,44 @@ async function main(): Promise<void> {
   const taxonomyNames = new Set(taxonomy.playlists.map((p) => p.name));
 
   // ── Pre-create every taxonomy playlist on Spotify ────────────────────────
-  // Optimistic creation: surfaces all 27 playlists in the user's sidebar
+  // Optimistic creation: surfaces all playlists in the user's sidebar
   // immediately, eliminates a race when parallel classify tasks both need
   // the same uncreated playlist, and fails fast if Spotify is unhappy.
   if (!DRY_RUN) {
     console.error(`[sync] ensuring ${taxonomy.playlists.length} playlists exist on Spotify…`);
     for (const entry of taxonomy.playlists) {
       await resolvePlaylistId(entry.name);
+    }
+
+    // ── Generate / re-upload art + refresh descriptions ─────────────────
+    // Cached JPEGs are re-uploaded as-is (idempotent on Spotify's side);
+    // descriptions are regenerated each run with today's date + current
+    // cover artists. Fresh art is only computed for playlists missing a
+    // cache file. Use `pnpm art --force` to rebuild covers wholesale.
+    try {
+      const trackIdsForArt = collectArtTrackIds(db, taxonomy.playlists);
+      if (trackIdsForArt.length > 0) {
+        console.error(`[sync] resolving album images for ${trackIdsForArt.length} cover-source tracks…`);
+        const artTrackById = await fetchTracksForArt(spotify, trackIdsForArt);
+        let generated = 0;
+        let reuploaded = 0;
+        let skipped = 0;
+        for (const entry of taxonomy.playlists) {
+          try {
+            const r = await generatePlaylistArt(entry, spotify, db, artTrackById, { force: false });
+            if (r.status === 'generated') generated++;
+            else if (r.status === 'reuploaded') reuploaded++;
+            else skipped++;
+          } catch (err) {
+            console.error(`[sync] art failed for "${entry.name}": ${String(err)}`);
+            skipped++;
+          }
+        }
+        console.error(`[sync] art: generated=${generated} reuploaded=${reuploaded} skipped=${skipped}`);
+      }
+    } catch (err) {
+      // Art is best-effort — never block the classify path on it.
+      console.error(`[sync] art step failed (continuing): ${String(err)}`);
     }
   }
 
