@@ -1,6 +1,6 @@
 playlist_prefix: "🎧 "
 max_playlists_per_track: 2
-taxonomy_version: 7
+taxonomy_version: 8
 classifier_model: "google/gemini-2.5-flash-lite"
 
 # Each entry becomes a Spotify playlist named "<playlist_prefix><name>".
@@ -1052,3 +1052,31 @@ playlists:
       - "bright / sunny"
       - "ironic"
       - "celebratory"
+
+  - name: "Comedy"
+    description: >
+      Songs that exist to be funny — musical comedy, novelty tracks,
+      parody, joke songs. Tim Minchin, Bo Burnham (Inside era), Flight
+      of the Conchords, Tenacious D, Weird Al, Jonathan Coulton, Lonely
+      Island, Lemon Demon, comedy musical theatre cuts (Book of Mormon,
+      Avenue Q), genuinely funny internet/meme songs. The defining
+      criterion: humour is the *primary point*, not a side-effect of
+      style. Different from Petty (dramatic-for-fun, not funny-on-purpose).
+      If you'd describe the song as "this is hilarious" before
+      describing the genre, it belongs here.
+    fits:
+      - "comedy"
+      - "novelty"
+      - "parody"
+      - "musical comedy"
+      - "joke song"
+      - "satire"
+      - "comedic"
+    audio_hints:
+      tempo: "any"
+      energy: "any"
+      mood: "intentionally funny"
+    avoid:
+      - "earnest / sincere"
+      - "incidentally fun (→ Joy)"
+      - "ironic but not actually funny"
