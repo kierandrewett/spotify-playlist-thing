@@ -110,31 +110,13 @@ interface Cell {
   top: number;
 }
 
-/** Layout for N unique album images. Returns target size + (left, top) per slot. */
-function layoutFor(n: number): Array<{ width: number; height: number; left: number; top: number }> {
-  if (n >= 4) {
-    return [
-      { width: HALF, height: HALF, left: 0, top: 0 },
-      { width: HALF, height: HALF, left: HALF, top: 0 },
-      { width: HALF, height: HALF, left: 0, top: HALF },
-      { width: HALF, height: HALF, left: HALF, top: HALF },
-    ];
-  }
-  if (n === 3) {
-    return [
-      { width: FINAL_SIZE, height: HALF, left: 0, top: 0 },
-      { width: HALF, height: HALF, left: 0, top: HALF },
-      { width: HALF, height: HALF, left: HALF, top: HALF },
-    ];
-  }
-  if (n === 2) {
-    return [
-      { width: HALF, height: FINAL_SIZE, left: 0, top: 0 },
-      { width: HALF, height: FINAL_SIZE, left: HALF, top: 0 },
-    ];
-  }
-  return [{ width: FINAL_SIZE, height: FINAL_SIZE, left: 0, top: 0 }];
-}
+/** Fixed 2×2 layout. Caller guarantees exactly 4 unique album images. */
+const GRID_LAYOUT: Array<{ width: number; height: number; left: number; top: number }> = [
+  { width: HALF, height: HALF, left: 0, top: 0 },
+  { width: HALF, height: HALF, left: HALF, top: 0 },
+  { width: HALF, height: HALF, left: 0, top: HALF },
+  { width: HALF, height: HALF, left: HALF, top: HALF },
+];
 
 function escapeXml(s: string): string {
   return s.replace(/[<>&'"]/g, (c) =>
@@ -168,17 +150,15 @@ function overlaySvg(name: string): Buffer {
 }
 
 async function composeArt(name: string, imageBuffers: Buffer[]): Promise<Buffer> {
-  if (imageBuffers.length === 0) {
-    throw new Error(`composeArt called with zero images for "${name}"`);
+  if (imageBuffers.length !== 4) {
+    throw new Error(`composeArt requires exactly 4 images for "${name}", got ${imageBuffers.length}`);
   }
-  const layout = layoutFor(imageBuffers.length);
 
   // Resize each image to its slot using cover crop.
   const cells: Cell[] = [];
-  for (let i = 0; i < layout.length; i++) {
-    const slot = layout[i];
-    const src = imageBuffers[i % imageBuffers.length];
-    const resized = await sharp(src)
+  for (let i = 0; i < GRID_LAYOUT.length; i++) {
+    const slot = GRID_LAYOUT[i];
+    const resized = await sharp(imageBuffers[i])
       .resize(slot.width, slot.height, { fit: 'cover', position: 'centre' })
       .toBuffer();
     cells.push({ buf: resized, ...slot });
@@ -217,7 +197,7 @@ async function composeArt(name: string, imageBuffers: Buffer[]): Promise<Buffer>
 
 interface ProcessResult {
   name: string;
-  status: 'generated' | 'cached' | 'skipped-empty' | 'skipped-no-mapping' | 'error';
+  status: 'generated' | 'cached' | 'skipped-not-ready' | 'skipped-no-mapping' | 'error';
   message?: string;
 }
 
@@ -243,9 +223,6 @@ async function processPlaylist(
   }
 
   const trackIds = recentTracksForPlaylist(db, name);
-  if (trackIds.length === 0) {
-    return { name, status: 'skipped-empty', message: 'no classified tracks yet' };
-  }
 
   // Resolve to unique album image URLs (preserve recency order).
   const seenAlbums = new Set<string>();
@@ -259,8 +236,14 @@ async function processPlaylist(
     if (uniqueImageUrls.length === 4) break;
   }
 
-  if (uniqueImageUrls.length === 0) {
-    return { name, status: 'skipped-empty', message: 'tracks had no album images' };
+  // Wait until the playlist has 4 distinct albums to anchor the 2×2 grid —
+  // anything less ends up looking sparse or repetitive.
+  if (uniqueImageUrls.length < 4) {
+    return {
+      name,
+      status: 'skipped-not-ready',
+      message: `${uniqueImageUrls.length}/4 distinct albums (need 4)`,
+    };
   }
 
   const buffers = await Promise.all(uniqueImageUrls.map(downloadImage));
@@ -326,7 +309,7 @@ async function main(): Promise<void> {
         const tag = r.status === 'generated' ? '✓'
           : r.status === 'cached' ? '·'
           : r.status === 'error' ? '✗'
-          : '⊘';
+          : '⏳';
         console.error(`[art] ${tag} ${entry.name}${r.message ? ` — ${r.message}` : ''}`);
       } catch (err) {
         results.push({ name: entry.name, status: 'error', message: String(err) });
