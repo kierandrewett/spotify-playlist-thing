@@ -21,6 +21,7 @@ import {
   getOrCreatePlaylist,
   addTracksToPlaylist,
   removeTracksFromPlaylist,
+  replacePlaylistItems,
 } from './spotify.js';
 import { createLastfmClient, getTrackTags } from './lastfm.js';
 import { createMusicbrainzClient, lookupByIsrc } from './musicbrainz.js';
@@ -631,6 +632,34 @@ async function main(): Promise<void> {
     }
   } else {
     playlistsAffected = playlistNamesTouched.size;
+  }
+
+  // ── 11b. Stabilise touched playlists: dedupe + reorder ────────────────────
+  // The per-track adds above land tracks on Spotify quickly but can produce
+  // duplicates (e.g. a re-classified track added on top of an existing one)
+  // and don't enforce ordering. Now we replace each touched playlist with
+  // the canonical list from the DB — sorted by added_at DESC to match the
+  // Spotify Liked Songs default ordering, and naturally deduped by the
+  // (spotify_id, playlist_name) primary key in classifications.
+  if (!DRY_RUN && playlistNamesTouched.size > 0) {
+    console.error(`[sync] stabilising ${playlistNamesTouched.size} playlists (dedupe + reorder)…`);
+    const orderedStmt = db.prepare<[string], { spotify_id: string }>(`
+      SELECT t.spotify_id
+      FROM classifications c
+      JOIN tracks t ON c.spotify_id = t.spotify_id
+      WHERE c.playlist_name = ? AND t.removed_at IS NULL
+      ORDER BY datetime(t.added_at) DESC
+    `);
+    for (const playlistName of playlistNamesTouched) {
+      try {
+        const ids = orderedStmt.all(playlistName).map((r) => r.spotify_id);
+        const uris = ids.map((id) => `spotify:track:${id}`);
+        const playlistId = await resolvePlaylistId(playlistName);
+        await replacePlaylistItems(spotify, playlistId, uris);
+      } catch (err) {
+        console.error(`[sync] stabilise failed for "${playlistName}": ${String(err)}`);
+      }
+    }
   }
 
   // ── 12. Summary ───────────────────────────────────────────────────────────

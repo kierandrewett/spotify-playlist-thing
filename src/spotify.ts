@@ -434,6 +434,33 @@ export async function updatePlaylistDetails(
 }
 
 /**
+ * Replace a playlist's entire contents with the given ordered list of URIs.
+ * Acts as both a reorder AND a dedupe: PUT /items wipes the existing list
+ * and writes the first 100 in order; remaining items get appended via POST.
+ * Pass an empty array to clear a playlist.
+ */
+export async function replacePlaylistItems(
+  client: SpotifyClient,
+  playlistId: string,
+  uris: string[],
+): Promise<void> {
+  const state = client._internal;
+  const url = `https://api.spotify.com/v1/playlists/${encodeURIComponent(playlistId)}/items`;
+
+  // PUT replaces the playlist with the first batch (max 100).
+  await spotifyFetch(state, url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uris: uris.slice(0, 100) }),
+  });
+
+  // Anything beyond the first 100 is appended in order via POST.
+  if (uris.length > 100) {
+    await addTracksToPlaylist(client, playlistId, uris.slice(100));
+  }
+}
+
+/**
  * Fetch a single track and return the largest album image URL, or null if
  * the track has no album images.
  */
